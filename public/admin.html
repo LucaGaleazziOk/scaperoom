@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Panel de Administración — Sala de Escape Política</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<header class="topbar">
+  <div>
+    <h1>🛠️ Panel de Administración</h1>
+    <div class="sub" id="topbar-sub">Sala de Escape Política</div>
+  </div>
+  <button class="secondary small" id="btn-logout" style="display:none">Salir</button>
+</header>
+
+<div class="container">
+  <div id="msg-area"></div>
+
+  <div class="card" id="login-card">
+    <h2>Ingreso de staff</h2>
+    <div class="grid grid-2">
+      <div>
+        <label>Usuario</label>
+        <input id="in-user" placeholder="admin / facilitador1 / jurado1" autocomplete="off" />
+        <label>Contraseña</label>
+        <input id="in-pass" type="password" autocomplete="off" />
+        <button id="btn-login">Entrar</button>
+      </div>
+      <div class="small-muted">
+        <p>Credenciales demo (cambiar antes del evento real):</p>
+        <ul>
+          <li><strong>admin / admin123</strong> — organizador general</li>
+          <li><strong>facilitador1..5 / facil123</strong> — un facilitador por sala temática</li>
+          <li><strong>jurado1 / jurado123</strong> — jurado de la Sala 6</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div id="app-area" class="hidden">
+
+    <div class="card">
+      <h2>Control de crisis (Sala 6)</h2>
+      <p class="small-muted">Convoca a los 5 Presidentes en simultáneo, en el momento no anunciado que decidas.</p>
+      <button class="danger" id="btn-crisis" >🚨 Disparar Sala 6 para los 5 equipos</button>
+      <span id="crisis-estado-badge"></span>
+    </div>
+
+    <div class="card">
+      <h2>Estado de los equipos</h2>
+      <div id="equipos-overview"></div>
+    </div>
+
+    <div class="card">
+      <h2>Evaluación Sala 6 (jurado)</h2>
+      <div id="crisis-eval-area" class="small-muted">Se dispara la Sala 6 para cargar evaluaciones.</div>
+    </div>
+
+    <div class="card">
+      <h2>Congreso — votación de proyectos de ley</h2>
+      <div id="congreso-area"></div>
+    </div>
+
+    <div class="card">
+      <h2>Ajuste manual de puntaje</h2>
+      <form id="form-puntaje" class="grid grid-2">
+        <div>
+          <label>Equipo</label>
+          <select id="ajuste-equipo" required></select>
+          <label>Puntos (positivo o negativo)</label>
+          <input id="ajuste-puntos" type="number" step="1" required />
+        </div>
+        <div>
+          <label>Motivo</label>
+          <input id="ajuste-motivo" required placeholder="Ej: bonus por desempeño en Sala 6" />
+          <button type="submit">Aplicar ajuste</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Leaderboard</h2>
+      <table>
+        <thead><tr><th>#</th><th>Equipo</th><th>Leyes aprobadas</th><th>Ajustes</th><th>Puntaje total</th><th>Salas completadas</th></tr></thead>
+        <tbody id="tabla-leaderboard"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer-note">Sala de Escape Política — Panel de Administración · datos en vivo vía WebSocket</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>

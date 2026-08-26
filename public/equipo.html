@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Panel de Equipo — Sala de Escape Política</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<header class="topbar">
+  <div>
+    <h1>🏛️ Panel de Equipo</h1>
+    <div class="sub" id="topbar-sub">Sala de Escape Política</div>
+  </div>
+  <button class="secondary small" id="btn-logout" style="display:none">Salir</button>
+</header>
+
+<div class="container">
+  <div id="msg-area"></div>
+
+  <!-- LOGIN -->
+  <div class="card" id="login-card">
+    <h2>Ingresar al equipo</h2>
+    <div class="grid grid-2">
+      <div>
+        <label>Código de equipo</label>
+        <input id="in-codigo" placeholder="Ej: GOB-1" autocomplete="off" />
+        <label>PIN</label>
+        <input id="in-pin" placeholder="Ej: 1001" autocomplete="off" />
+        <button id="btn-buscar-roles">Buscar roles disponibles</button>
+      </div>
+      <div>
+        <label>Rol</label>
+        <select id="in-rol"><option value="">— primero ingresá el código de equipo —</option></select>
+        <label>Tu nombre (opcional)</label>
+        <input id="in-nombre" placeholder="Como querés que te vean tus compañeros" />
+        <button id="btn-login">Entrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- APP -->
+  <div id="app-area" class="hidden">
+    <div class="card">
+      <h2 id="equipo-nombre">Equipo</h2>
+      <p id="equipo-contexto" class="small-muted"></p>
+      <div class="grid grid-2">
+        <div>
+          <h3>Objetivos generales</h3>
+          <ul id="equipo-objetivos"></ul>
+        </div>
+        <div>
+          <h3>Tensión interna a jugar</h3>
+          <p id="equipo-tension" class="small-muted"></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Tu objetivo individual (secreto)</h2>
+      <p class="small-muted">Este objetivo lo ves únicamente vos. No es necesario que coincida con lo que decida el resto del equipo.</p>
+      <div class="objetivo-secreto" id="objetivo-secreto">—</div>
+    </div>
+
+    <div class="card" id="crisis-card" style="display:none">
+      <h2>🚨 Sala 6 — Crisis de comunicación</h2>
+      <p id="crisis-texto"></p>
+    </div>
+
+    <div class="card" id="paso-activo-card">
+      <h2>Sala activa</h2>
+      <div id="paso-activo-content">Esperando al facilitador…</div>
+    </div>
+
+    <div class="card">
+      <h2>Recorrido del equipo</h2>
+      <table>
+        <thead><tr><th>#</th><th>Sala</th><th>Estado</th><th>Cartelito recibido</th><th>Decisión</th></tr></thead>
+        <tbody id="tabla-recorrido"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer-note">Sala de Escape Política — Panel de Equipo · datos en vivo vía WebSocket</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+<script src="equipo.js"></script>
+</body>
+</html>

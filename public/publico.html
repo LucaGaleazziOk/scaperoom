@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Leaderboard — Sala de Escape Política</title>
+<link rel="stylesheet" href="styles.css" />
+<style>
+  body { background: var(--navy); }
+  .container { max-width: 1000px; }
+  .card { padding: 24px 30px; }
+  h1.title { text-align: center; color: #fff; font-size: 34px; margin: 30px 0 6px; }
+  p.subtitle { text-align: center; color: #cbd5e1; margin-bottom: 24px; }
+  table { font-size: 20px; }
+  th { font-size: 14px; }
+  td { padding: 14px 12px; }
+  .progreso { text-align: center; color: var(--gray); margin-top: 10px; }
+  .rank { font-size: 22px; font-weight: 800; }
+</style>
+</head>
+<body>
+  <h1 class="title">🏆 Sala de Escape Política — Leaderboard</h1>
+  <p class="subtitle" id="crisis-line">Cargando...</p>
+  <div class="container">
+    <div class="card">
+      <table>
+        <thead><tr><th>#</th><th>Gobierno</th><th>Leyes aprobadas</th><th>Puntaje</th></tr></thead>
+        <tbody id="tabla-leaderboard"></tbody>
+      </table>
+      <p class="progreso" id="progreso-linea"></p>
+    </div>
+  </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+<script src="publico.js"></script>
+</body>
+</html>
