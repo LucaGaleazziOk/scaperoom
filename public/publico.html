@@ -1,36 +1,75 @@
 <!doctype html>
 <html lang="es">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Leaderboard — Sala de Escape Política</title>
-<link rel="stylesheet" href="styles.css" />
-<style>
-  body { background: var(--navy); }
-  .container { max-width: 1000px; }
-  .card { padding: 24px 30px; }
-  h1.title { text-align: center; color: #fff; font-size: 34px; margin: 30px 0 6px; }
-  p.subtitle { text-align: center; color: #cbd5e1; margin-bottom: 24px; }
-  table { font-size: 20px; }
-  th { font-size: 14px; }
-  td { padding: 14px 12px; }
-  .progreso { text-align: center; color: var(--gray); margin-top: 10px; }
-  .rank { font-size: 22px; font-weight: 800; }
-</style>
-</head>
-<body>
-  <h1 class="title">🏆 Sala de Escape Política — Leaderboard</h1>
-  <p class="subtitle" id="crisis-line">Cargando...</p>
-  <div class="container">
-    <div class="card">
-      <table>
-        <thead><tr><th>#</th><th>Gobierno</th><th>Leyes aprobadas</th><th>Puntaje</th></tr></thead>
-        <tbody id="tabla-leaderboard"></tbody>
-      </table>
-      <p class="progreso" id="progreso-linea"></p>
-    </div>
-  </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
-<script src="publico.js"></script>
-</body>
-</html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Leaderboard — Sala de Escape Política</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+      @keyframes floatTrophy { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-6px) rotate(2deg); } }
+      @keyframes titleGlow { 0%, 100% { filter: drop-shadow(0 0 18px rgba(96,165,250,0.35)); } 50% { filter: drop-shadow(0 0 28px rgba(34,211,238,0.5)); } }
+      .container { max-width: 1000px; }
+      .card { padding: 26px 32px; }
+      .hero { text-align: center; padding: 44px 20px 18px; position: relative; z-index: 1; }
+      .hero .trophy { display: inline-block; font-size: 46px; animation: floatTrophy 3.2s ease-in-out infinite; }
+      h1.title {
+            color: #fff;
+            font-size: 40px;
+            font-weight: 900;
+            letter-spacing: -0.02em;
+            margin: 8px 0 8px;
+            animation: titleGlow 3.2s ease-in-out infinite;
+            background: linear-gradient(90deg, #fff, var(--blue-100) 45%, var(--cyan));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+      }
+      p.subtitle {
+            text-align: center;
+            color: var(--blue-100);
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: .02em;
+            margin-bottom: 8px;
+            padding: 6px 16px;
+            display: inline-block;
+      }
+      .subtitle-wrap { text-align: center; margin-bottom: 10px; }
+      table { font-size: 19px; }
+      th { font-size: 13px; }
+      td { padding: 15px 14px; }
+      .progreso {
+            text-align: center;
+            color: var(--gray);
+            margin-top: 16px;
+            font-size: 13px;
+            font-weight: 600;
+      }
+      .rank { font-size: 22px; font-weight: 900; background: linear-gradient(135deg, var(--blue-600), var(--cyan)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+      .leader-row-1 .rank { background: linear-gradient(135deg, #f59e0b, #f43f5e); -webkit-background-clip: text; background-clip: text; }
+    </style>
+  </head>
+  <body>
+      <div class="hero">
+            <span class="trophy">🏆</span>span>
+            <h1 class="title">Sala de Escape Política</h1>h1>
+            <div class="subtitle-wrap"><p class="subtitle" id="crisis-line">Cargando…</p>p></div>div>
+      </div>div>
+      <div class="container">
+            <div class="card">
+                    <table>
+                              <thead><tr><th>#</th><th>Gobierno</th><th>Leyes aprobadas</th><th>Puntaje</th></tr></thead>
+                            <tbody id="tabla-leaderboard"></tbody>tbody>
+                    </table>
+                  <p class="progreso" id="progreso-linea"></p>p>
+            </div>div>
+      </div>div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="publico.js"></script>
+  </body>
+</html>html>
+</th></th></tr></thead>
+                    </table>
+  </body>
+  </style></title>
+  </head>
