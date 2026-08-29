@@ -2,7 +2,7 @@ const express = require("express");
 const { v4: uuid } = require("uuid");
 const db = require("../db");
 const { requireAuth, requireStaff } = require("../auth");
-const { emitAdmin, emitEquipo, emitPublico } = require("../realtime");
+const { emitAdmin, emitEquipo, emitPublico, emitGlobal } = require("../realtime");
 const {
   derivarCartelito,
   construirLeaderboard,
@@ -12,6 +12,7 @@ const {
   calcularPuntosCrisis,
 } = require("../logic");
 const { EJES } = require("../ejes");
+const { resetAndReseed } = require("../seed");
 
 const router = express.Router();
 router.use(requireAuth);
@@ -233,6 +234,22 @@ router.post("/puntaje/ajustar", requireStaff("admin"), (req, res) => {
 // GET /api/admin/leaderboard
 router.get("/leaderboard", requireStaff("admin", "facilitador", "jurado"), (req, res) => {
   res.json(construirLeaderboard());
+});
+
+// -----------------------------------------------------------------------
+// POST /api/admin/reiniciar  (solo admin) — vuelve TODA la jornada a cero:
+// borra el progreso de las 5 provincias, las decisiones tomadas, las salas
+// de crisis disparadas/evaluadas y los ajustes manuales, y vuelve a sembrar
+// los mismos codigos/PIN de equipo y credenciales de staff de siempre.
+// Como esto genera equipos y usuarios nuevos (otros ids), avisa a TODOS los
+// paneles conectados (equipo, admin, publico) para que se recarguen solos:
+// cualquier sesion vieja (incluida la del admin que ejecuta el reinicio)
+// queda invalida y vuelve a pedir login.
+// -----------------------------------------------------------------------
+router.post("/reiniciar", requireStaff("admin"), (req, res) => {
+  resetAndReseed();
+  emitGlobal("app:reset", { mensaje: "La jornada fue reiniciada por el administrador." });
+  res.json({ ok: true });
 });
 
 module.exports = router;
