@@ -29,7 +29,7 @@ const APERTURA_GENERICA = {
 const SALAS_TEMATICAS = [
   {
     slug: "economia",
-    nombre: "Sala 1 — Economía",
+    nombre: "Economía",
     eje: "economia",
     encuadre:
       "El gabinete económico debe resolver, en minutos, un problema estructural de las cuentas provinciales. No hay tiempo para consultar a la Legislatura: la decisión la toma el gabinete presente en la sala.",
@@ -83,7 +83,7 @@ const SALAS_TEMATICAS = [
   },
   {
     slug: "desarrollo_social",
-    nombre: "Sala 2 — Desarrollo Social",
+    nombre: "Desarrollo Social",
     eje: "desarrollo_social",
     encuadre:
       "El área social recibe un reclamo urgente que no puede esperar al próximo ciclo presupuestario. El gabinete debe decidir cómo (y a costa de qué) responde.",
@@ -137,7 +137,7 @@ const SALAS_TEMATICAS = [
   },
   {
     slug: "seguridad",
-    nombre: "Sala 3 — Seguridad",
+    nombre: "Seguridad",
     eje: "seguridad",
     encuadre:
       "La agenda de seguridad exige una respuesta pública inmediata. Cualquier decisión (o la falta de ella) va a leerse como una señal política.",
@@ -191,7 +191,7 @@ const SALAS_TEMATICAS = [
   },
   {
     slug: "crisis_interna",
-    nombre: "Sala 4 — Crisis Interna",
+    nombre: "Crisis Interna",
     eje: "crisis_interna",
     encuadre:
       "La amenaza no viene de afuera: es una tensión dentro del propio espacio político. El gabinete tiene que decidir hacia adentro sin que se note demasiado hacia afuera.",
@@ -245,7 +245,7 @@ const SALAS_TEMATICAS = [
   },
   {
     slug: "salud",
-    nombre: "Sala 5 — Salud",
+    nombre: "Salud",
     eje: "salud",
     encuadre:
       "El sistema de salud provincial atraviesa una situación límite. El gabinete tiene minutos para decidir una respuesta antes de que el tema escale en agenda pública.",
