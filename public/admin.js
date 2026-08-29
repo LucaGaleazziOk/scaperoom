@@ -18,11 +18,25 @@ function showMsg(text, type) {
   setTimeout(() => { $("msg-area").innerHTML = ""; }, 5000);
 }
 
+function forzarLogout(motivo) {
+  localStorage.removeItem("sep_admin_session");
+  session = null;
+  if (socket) { try { socket.disconnect(); } catch (e) {} }
+  $("app-area").classList.add("hidden");
+  $("login-card").classList.remove("hidden");
+  $("btn-logout").style.display = "none";
+  if (motivo) showMsg(motivo, "error");
+}
+
 async function api(path, opts = {}) {
   const headers = Object.assign({ "Content-Type": "application/json" }, opts.headers || {});
   if (session?.token) headers["Authorization"] = "Bearer " + session.token;
   const res = await fetch(API + path, { ...opts, headers });
   const data = await res.json().catch(() => ({}));
+  if (res.status === 401) {
+    forzarLogout("Tu sesión ya no es válida. Volvé a ingresar con usuario y contraseña.");
+    throw new Error(data.error || "Sesión inválida.");
+  }
   if (!res.ok) throw new Error(data.error || "Error de red");
   return data;
 }
