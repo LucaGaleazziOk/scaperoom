@@ -129,7 +129,7 @@ function renderOverview(overview) {
         })
         .join("");
 
-      const jugadores = eq.jugadores.map((j) => `${j.rol_nombre}: ${j.nombre}`).join(" · ") || "sin jugadores logueados aún";
+      const jugadores = eq.jugadores.map((j) => `${j.rol_nombre}: ${j.nombre}`).join(" · ") || "acceso aún no utilizado";
 
       return `
         <h3>${eq.equipo.codigo} — ${eq.equipo.nombre}</h3>

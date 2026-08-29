@@ -19,35 +19,17 @@ async function api(path, opts = {}) {
 }
 
 // ---------------- LOGIN ----------------
-$("btn-buscar-roles").addEventListener("click", async () => {
-  const codigo = $("in-codigo").value.trim();
-  if (!codigo) return showMsg("Ingresá el código de equipo primero.", "error");
-  try {
-    const roles = await api(`/api/auth/roles-disponibles?codigo=${encodeURIComponent(codigo)}`);
-    const sel = $("in-rol");
-    sel.innerHTML = "";
-    roles.forEach((r) => {
-      const opt = document.createElement("option");
-      opt.value = r.slug;
-      opt.textContent = r.nombre + (r.tomado ? " (ya tomado — reingresar)" : "");
-      sel.appendChild(opt);
-    });
-    showMsg("Roles cargados. Elegí el tuyo y presioná Entrar.", "ok");
-  } catch (e) {
-    showMsg(e.message, "error");
-  }
-});
-
+// Acceso único por equipo (código + PIN), sin selección de rol: el token
+// siempre queda a nombre del/la Jefe/a de Gabinete, que administra el panel.
 $("btn-login").addEventListener("click", async () => {
   const codigo = $("in-codigo").value.trim();
   const pin = $("in-pin").value.trim();
-  const rol_slug = $("in-rol").value;
   const nombre = $("in-nombre").value.trim();
-  if (!codigo || !pin || !rol_slug) return showMsg("Completá código, PIN y rol.", "error");
+  if (!codigo || !pin) return showMsg("Completá código de equipo y PIN.", "error");
   try {
     const data = await api("/api/auth/equipo/login", {
       method: "POST",
-      body: JSON.stringify({ codigo, pin, rol_slug, nombre }),
+      body: JSON.stringify({ codigo, pin, nombre }),
     });
     session = data;
     localStorage.setItem("sep_equipo_session", JSON.stringify(session));

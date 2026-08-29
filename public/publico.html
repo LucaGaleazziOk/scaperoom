@@ -6,32 +6,29 @@
 <title>Leaderboard — Sala de Escape Política</title>
 <link rel="stylesheet" href="styles.css" />
 <style>
-  @keyframes floatTrophy { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-6px) rotate(2deg); } }
-  @keyframes titleGlow { 0%, 100% { filter: drop-shadow(0 0 18px rgba(96,165,250,0.35)); } 50% { filter: drop-shadow(0 0 28px rgba(34,211,238,0.5)); } }
   .container { max-width: 1000px; }
   .card { padding: 26px 32px; }
   .hero { text-align: center; padding: 44px 20px 18px; position: relative; z-index: 1; }
-  .hero .trophy { display: inline-block; font-size: 46px; animation: floatTrophy 3.2s ease-in-out infinite; }
+  .hero .trophy { display: inline-block; font-size: 46px; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.35)); }
   h1.title {
     color: #fff;
-    font-size: 40px;
+    font-size: 38px;
     font-weight: 900;
-    letter-spacing: -0.02em;
-    margin: 8px 0 8px;
-    animation: titleGlow 3.2s ease-in-out infinite;
-    background: linear-gradient(90deg, #fff, var(--blue-100) 45%, var(--cyan));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+    margin: 10px 0 6px;
   }
   p.subtitle {
     text-align: center;
-    color: var(--blue-100);
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: .02em;
+    color: var(--gold-light);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
     margin-bottom: 8px;
     padding: 6px 16px;
+    border-top: 1px solid rgba(240,179,35,0.4);
+    border-bottom: 1px solid rgba(240,179,35,0.4);
     display: inline-block;
   }
   .subtitle-wrap { text-align: center; margin-bottom: 10px; }
@@ -45,8 +42,8 @@
     font-size: 13px;
     font-weight: 600;
   }
-  .rank { font-size: 22px; font-weight: 900; background: linear-gradient(135deg, var(--blue-600), var(--cyan)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .leader-row-1 .rank { background: linear-gradient(135deg, #f59e0b, #f43f5e); -webkit-background-clip: text; background-clip: text; }
+  .rank { font-size: 22px; font-weight: 900; color: var(--blue-800); }
+  .leader-row-1 .rank { color: var(--gold-dark); }
 </style>
 </head>
 <body>

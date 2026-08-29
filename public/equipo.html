@@ -21,19 +21,17 @@
   <!-- LOGIN -->
   <div class="card" id="login-card">
     <h2>Ingresar al equipo</h2>
+    <p class="small-muted">Acceso único por equipo, a cargo del/la Jefe/a de Gabinete de Ministros. El resto de los roles se juega de forma presencial con la carpeta física.</p>
     <div class="grid grid-2">
       <div>
         <label>Código de equipo</label>
         <input id="in-codigo" placeholder="Ej: GOB-1" autocomplete="off" />
         <label>PIN</label>
         <input id="in-pin" placeholder="Ej: 1001" autocomplete="off" />
-        <button id="btn-buscar-roles">Buscar roles disponibles</button>
       </div>
       <div>
-        <label>Rol</label>
-        <select id="in-rol"><option value="">— primero ingresá el código de equipo —</option></select>
         <label>Tu nombre (opcional)</label>
-        <input id="in-nombre" placeholder="Como querés que te vean tus compañeros" />
+        <input id="in-nombre" placeholder="Nombre de quien administra el panel" />
         <button id="btn-login">Entrar</button>
       </div>
     </div>
@@ -57,7 +55,7 @@
     </div>
 
     <div class="card">
-      <h2>Tu objetivo individual (secreto)</h2>
+      <h2>Objetivo secreto — Jefe/a de Gabinete</h2>
       <p class="small-muted">Este objetivo lo ves únicamente vos. No es necesario que coincida con lo que decida el resto del equipo.</p>
       <div class="objetivo-secreto" id="objetivo-secreto">—</div>
     </div>
