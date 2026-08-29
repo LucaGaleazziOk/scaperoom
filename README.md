@@ -21,7 +21,7 @@ El servidor levanta en `http://localhost:3000` y siembra automáticamente, la pr
 
 ### Credenciales de prueba
 
-**Equipos** (código de equipo / PIN — elegís el rol al ingresar):
+**Equipos** (código de equipo / PIN — acceso único por equipo, a cargo del/la Jefe/a de Gabinete de Ministros):
 
 | Código | PIN | Gobierno |
 |---|---|---|
@@ -45,7 +45,7 @@ Para volver a sembrar desde cero: borrá el archivo `data/scaperoom.db` y reinic
 
 ## Cómo se juega, en la plataforma
 
-1. Un jugador entra a `equipo.html`, pone el código de su equipo y el PIN (impresos en la carpeta física), y elige su rol. El sistema le muestra únicamente el objetivo secreto de ese rol.
+1. El/la Jefe/a de Gabinete de Ministros de cada equipo entra a `equipo.html` con el código de equipo y el PIN (impresos en la carpeta física) — es el único login habilitado por equipo, y administra el panel en representación de todo el grupo. El resto de los roles (Presidente, ministros, diputados) se juegan de forma presencial con la carpeta física, sin login propio.
 2. El facilitador de cada sala, desde `admin.html`, presiona **Iniciar** en el paso correspondiente cuando el equipo llega físicamente. Ahí el Panel de Equipo revela el caso, la variante de apertura (según el cartelito con el que llegaron) y el formulario de decisión.
 3. El equipo elige una opción, redacta el proyecto de ley y lo entrega desde su panel. Eso cierra la sala, calcula el cartelito resultante (A/B/C) y lo propaga automáticamente a la siguiente sala de su recorrido — sin que nadie tenga que anotarlo a mano.
 4. En cualquier momento del día, el admin dispara la **Sala 6** desde su panel: los 5 equipos reciben al instante, por WebSocket, el aviso de la crisis. El jurado carga la evaluación de cada Presidente desde `admin.html`.
@@ -54,7 +54,7 @@ Para volver a sembrar desde cero: borrá el archivo `data/scaperoom.db` y reinic
 
 ## Cómo se implementó el RBAC
 
-- **Jugadores**: login por código de equipo + PIN + selección de rol (sin contraseña personal). El JWT emitido lleva `equipo_id` y `rol_id`; todas las rutas de `/api/team/*` filtran por esos claims, así que un jugador nunca puede pedir el estado de otro equipo, y el objetivo secreto que devuelve `/api/team/estado` es siempre el de su propio rol.
+- **Equipos**: login por código de equipo + PIN, sin selección de rol ni contraseña personal — el servidor asigna siempre el rol de Jefe/a de Gabinete de Ministros, que es el único acceso habilitado por equipo. El JWT emitido lleva `equipo_id` y `rol_id`; todas las rutas de `/api/team/*` filtran por esos claims, así que un equipo nunca puede pedir el estado de otro equipo.
 - **Staff**: login usuario/contraseña (`bcrypt`) con `staff_rol` (`admin` | `facilitador` | `jurado`) como claim. Los facilitadores solo pueden iniciar/cerrar pasos de la sala que tienen asignada (`sala_asignada_id`); el servidor lo valida en cada request, no solo en la interfaz.
 - **Tiempo real segmentado**: al conectar el socket, el servidor decodifica el mismo JWT y suscribe al cliente solo a los canales que le corresponden (`equipo:<id>` para jugadores, `admin` para staff, `publico` para el proyector) — ver `server/index.js`.
 
