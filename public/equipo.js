@@ -75,6 +75,12 @@ function conectarSocket() {
     showMsg(`🚨 ${payload?.mensaje || "Se disparó una sala de crisis."}`, "ok");
     cargarEstado();
   });
+  // Tras un reinicio total desde el panel de administracion, esta provincia
+  // ya no existe con el mismo id: recargar vuelve a mostrar el login.
+  socket.on("app:reset", () => {
+    showMsg("La jornada se reinició. Recargando…", "ok");
+    setTimeout(() => location.reload(), 1000);
+  });
 }
 
 async function cargarEstado() {

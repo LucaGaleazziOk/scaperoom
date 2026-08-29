@@ -36,6 +36,7 @@ const socket = io({ auth: { canal: "publico" } });
 socket.on("leaderboard:actualizado", cargar);
 socket.on("crisis:iniciada", cargar);
 socket.on("connect", cargar);
+socket.on("app:reset", () => setTimeout(() => location.reload(), 1000));
 
 cargar();
 setInterval(cargar, 15000); // respaldo por si se pierde el socket

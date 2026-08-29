@@ -74,7 +74,29 @@ function conectarSocket() {
   ["paso:iniciado", "paso:cerrado", "crisis:iniciada", "crisis:evaluada", "puntaje:ajustado", "equipo:rol_tomado"].forEach((ev) => {
     socket.on(ev, () => cargarTodo());
   });
+  // Tras un reinicio total (ver btn-reset-todo) los equipos/usuarios son
+  // nuevos: la sesion actual (incluida la de quien disparo el reinicio) ya
+  // no es valida, asi que la unica salida limpia es recargar la pagina.
+  socket.on("app:reset", () => {
+    showMsg("La jornada se reinició. Recargando…", "ok");
+    setTimeout(() => location.reload(), 1000);
+  });
 }
+
+async function resetearTodo() {
+  const confirmado = confirm(
+    "¿Reiniciar TODA la jornada?\n\nEsto borra el progreso de las 5 provincias, las decisiones tomadas, las salas de crisis disparadas/evaluadas y los ajustes manuales, y vuelve todo a cero.\n\nEsta acción no se puede deshacer."
+  );
+  if (!confirmado) return;
+  try {
+    await api("/api/admin/reiniciar", { method: "POST" });
+    showMsg("Jornada reiniciada. Recargando todos los paneles…", "ok");
+    setTimeout(() => location.reload(), 800);
+  } catch (e) {
+    showMsg(e.message, "error");
+  }
+}
+$("btn-reset-todo").addEventListener("click", resetearTodo);
 
 async function cargarTodo() {
   try {
