@@ -528,9 +528,40 @@ function run() {
   insertMany();
 }
 
+// Borra TODO el estado de juego (equipos, decisiones, crisis, ajustes,
+// staff) y vuelve a sembrar desde cero, con los mismos codigos/PIN y
+// credenciales de siempre. Usado por el boton "Reiniciar jornada" del panel
+// de administracion (server/routes/admin.js) para volver todo a cero sin
+// tener que borrar el archivo de base de datos ni reiniciar el proceso.
+const TABLAS_A_LIMPIAR = [
+  "decision",
+  "evaluacion_crisis",
+  "puntaje_ajuste",
+  "paso_recorrido",
+  "crisis_estado",
+  "usuario",
+  "equipo",
+  "sala",
+  "rol",
+  "jornada",
+  "evento_log",
+];
+
+function limpiarTodo() {
+  const tx = db.transaction(() => {
+    for (const tabla of TABLAS_A_LIMPIAR) db.prepare(`DELETE FROM ${tabla}`).run();
+  });
+  tx();
+}
+
+function resetAndReseed() {
+  limpiarTodo();
+  run();
+}
+
 if (require.main === module) {
   run();
   process.exit(0);
 }
 
-module.exports = { run };
+module.exports = { run, resetAndReseed };

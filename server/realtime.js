@@ -24,4 +24,12 @@ function emitTodos(event, payload) {
   emitPublico(event, payload);
 }
 
-module.exports = { setIo, emitAdmin, emitEquipo, emitPublico, emitTodos };
+// Broadcast real a TODOS los sockets conectados, sin importar su room
+// (jugadores incluidos). Se usa para "app:reset": tras un reinicio total de
+// la jornada las rooms `equipo:<id>` quedan obsoletas (los equipos son
+// nuevos), asi que hace falta llegar a todo el mundo por igual.
+function emitGlobal(event, payload) {
+  if (ioInstance) ioInstance.emit(event, payload);
+}
+
+module.exports = { setIo, emitAdmin, emitEquipo, emitPublico, emitTodos, emitGlobal };

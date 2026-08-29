@@ -31,16 +31,22 @@ app.get("/api/health", (req, res) => res.json({ ok: true, hora: new Date().toISO
 // Frontend estatico (Panel Admin / Panel de Equipo / Panel Publico)
 app.use(express.static(path.join(__dirname, "..", "public")));
 
+// Manejador de errores global: sin esto, cualquier excepcion no capturada en
+// una ruta (por ejemplo una violacion de FOREIGN KEY) hace que Express
+// devuelva su pagina de error por defecto en HTML — el frontend, que espera
+// JSON, la interpreta como "Error de red" sin ninguna pista de que paso.
+// Con este handler, cualquier fallo similar se ve en el panel con un mensaje
+// claro (y queda logueado en la consola del servidor para diagnosticar).
+app.use((err, req, res, next) => {
+  console.error("[error]", err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: "Error interno del servidor. Probá de nuevo en unos segundos." });
+});
+
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 setIo(io);
 
-// ---------------------------------------------------------------------
-// Autorizacion de canales de tiempo real: cada cliente se autentica con el
-// mismo JWT que usa contra la API REST, y el servidor decide a que "rooms"
-// de Socket.io lo suscribe. Esto reproduce, para el canal en vivo, la misma
-// segmentacion de datos que las rutas REST hacen via requireAuth/requireStaff.
-// ---------------------------------------------------------------------
 io.on("connection", (socket) => {
   const { token, canal } = socket.handshake.auth || {};
 
