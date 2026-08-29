@@ -5,6 +5,14 @@ let lastOverview = null;
 
 const $ = (id) => document.getElementById(id);
 
+const NOMBRE_EJE = {
+  imagen_positiva: "Imagen Positiva",
+  intencion_voto: "Intención de Voto",
+  gobernabilidad: "Gobernabilidad",
+  salud_fiscal: "Salud Fiscal",
+  orden_publico: "Orden Público",
+};
+
 function showMsg(text, type) {
   $("msg-area").innerHTML = `<div class="msg ${type}">${text}</div>`;
   setTimeout(() => { $("msg-area").innerHTML = ""; }, 5000);
@@ -43,17 +51,13 @@ function iniciarApp() {
   $("btn-logout").style.display = "inline-block";
   $("topbar-sub").textContent = `${session.usuario.nombre} — rol de staff: ${session.usuario.staff_rol}`;
 
-  if (session.usuario.staff_rol !== "admin") {
-    $("btn-crisis").style.display = "none";
-  }
-
   conectarSocket();
   cargarTodo();
 }
 
 function conectarSocket() {
   socket = io({ auth: { token: session.token } });
-  ["paso:iniciado", "paso:cerrado", "crisis:iniciada", "crisis:evaluada", "congreso:actualizado", "puntaje:ajustado", "equipo:rol_tomado"].forEach((ev) => {
+  ["paso:iniciado", "paso:cerrado", "crisis:iniciada", "crisis:evaluada", "puntaje:ajustado", "equipo:rol_tomado"].forEach((ev) => {
     socket.on(ev, () => cargarTodo());
   });
 }
@@ -62,68 +66,68 @@ async function cargarTodo() {
   try {
     const overview = await api("/api/admin/overview");
     lastOverview = overview;
+    renderCrisisControl(overview);
     renderOverview(overview);
-    renderCrisisBadge(overview.crisis_disparada);
     renderCrisisEval(overview);
     renderLeaderboard(overview.leaderboard);
     fillEquipoSelect(overview.equipos.map((e) => e.equipo));
-    if (overview.crisis_disparada || overview.equipos.some((e) => e.pasos.every((p) => p.sala_tipo === "crisis" || p.estado === "cerrado"))) {
-      cargarCongreso();
-    } else {
-      $("congreso-area").innerHTML = `<p class="small-muted">Los proyectos de ley aparecen acá a medida que los equipos los van entregando.</p>`;
-      cargarCongreso();
-    }
+    fillEjeSelect(overview.ejes);
   } catch (e) {
     showMsg(e.message, "error");
   }
 }
 
-function renderCrisisBadge(disparada) {
-  $("crisis-estado-badge").innerHTML = disparada
-    ? ` <span class="badge cerrado">Ya disparada</span>`
-    : ` <span class="badge pendiente">Sin disparar</span>`;
-  $("btn-crisis").disabled = disparada;
+function renderCrisisControl(overview) {
+  const puedeDisparar = session.usuario.staff_rol === "admin";
+  $("crisis-control-area").innerHTML = overview.salas_crisis
+    .map((s) => {
+      const badge = s.disparada ? `<span class="badge cerrado">Ya disparada</span>` : `<span class="badge pendiente">Sin disparar</span>`;
+      const boton = puedeDisparar
+        ? `<button class="danger small" ${s.disparada ? "disabled" : ""} onclick="dispararCrisis('${s.sala_id}','${s.nombre.replace(/'/g, "")}')">🚨 Disparar</button>`
+        : "";
+      return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <strong style="min-width:260px">${s.nombre}</strong> ${badge} ${boton}
+      </div>`;
+    })
+    .join("");
 }
 
-$("btn-crisis").addEventListener("click", async () => {
-  if (!confirm("¿Confirmás disparar la Sala 6 para los 5 equipos ahora mismo?")) return;
+async function dispararCrisis(salaId, nombre) {
+  if (!confirm(`¿Confirmás disparar "${nombre}" para las 5 provincias ahora mismo?`)) return;
   try {
-    await api("/api/admin/crisis/disparar", { method: "POST" });
-    showMsg("Sala 6 disparada para los 5 equipos.", "ok");
+    await api("/api/admin/crisis/disparar", { method: "POST", body: JSON.stringify({ sala_id: salaId }) });
+    showMsg(`"${nombre}" disparada para las 5 provincias.`, "ok");
     cargarTodo();
   } catch (e) {
     showMsg(e.message, "error");
   }
-});
+}
 
 function renderOverview(overview) {
   const cont = $("equipos-overview");
   const esFacilitador = session.usuario.staff_rol === "facilitador";
-  const salaAsignada = session.usuario.sala_asignada_id;
 
   cont.innerHTML = overview.equipos
     .map((eq) => {
       const filas = eq.pasos
         .sort((a, b) => a.orden_index - b.orden_index)
         .map((p) => {
-          const puedeOperar = !esFacilitador || p.sala_tipo === "crisis"; // facilitador: solo su sala (chequeo real en backend)
           const cart = p.cartelito_entrada ? `<span class="badge cartelito-${p.cartelito_entrada}">${p.cartelito_entrada}</span>` : "—";
-          const label = p.sala_tipo === "crisis" ? "Sala 6" : p.orden_index + 1;
           let acciones = "";
-          if (p.sala_tipo !== "crisis") {
-            if (p.estado === "pendiente") {
-              acciones = `<button class="small" onclick="iniciarPaso('${p.paso_id}')">Iniciar</button>`;
-            } else if (p.estado === "en_curso") {
-              acciones = `<button class="small secondary" onclick="cerrarPasoModerado('${p.paso_id}')">Forzar cierre</button>`;
-            }
+          if (p.estado === "pendiente") {
+            acciones = `<button class="small" onclick="iniciarPaso('${p.paso_id}')">Iniciar</button>`;
+          } else if (p.estado === "en_curso") {
+            acciones = `<button class="small secondary" onclick="cerrarPasoModerado('${p.paso_id}')">Forzar cierre</button>`;
           }
+          const decisionTxt = p.decision
+            ? `${p.decision.opcion_codigo} — ${p.decision.opcion_etiqueta || ""}<br/><span class="small-muted">${formatEfectos(p.decision.efectos)}</span>`
+            : "—";
           return `<tr>
-            <td>${label}</td>
+            <td>${p.orden_index + 1}</td>
             <td>${p.sala_nombre}</td>
             <td><span class="badge ${p.estado}">${p.estado}</span></td>
             <td>${cart}</td>
-            <td>${p.decision || "—"}</td>
-            <td>${p.proyecto_entregado ? "✅ " + (p.proyecto_nombre || "") : "—"}</td>
+            <td>${decisionTxt}</td>
             <td>${acciones}</td>
           </tr>`;
         })
@@ -135,12 +139,19 @@ function renderOverview(overview) {
         <h3>${eq.equipo.codigo} — ${eq.equipo.nombre}</h3>
         <p class="small-muted">${jugadores}</p>
         <table>
-          <thead><tr><th>#</th><th>Sala</th><th>Estado</th><th>Cartelito</th><th>Decisión</th><th>Proyecto</th><th>Acciones</th></tr></thead>
+          <thead><tr><th>#</th><th>Sala</th><th>Estado</th><th>Cartelito</th><th>Decisión (efectos)</th><th>Acciones</th></tr></thead>
           <tbody>${filas}</tbody>
         </table>
       `;
     })
     .join("<hr/>");
+}
+
+function formatEfectos(efectos) {
+  if (!efectos || !Object.keys(efectos).length) return "";
+  return Object.entries(efectos)
+    .map(([k, v]) => `${NOMBRE_EJE[k] || k} ${v > 0 ? "+" : ""}${v}`)
+    .join(" · ");
 }
 
 async function iniciarPaso(pasoId) {
@@ -154,9 +165,10 @@ async function iniciarPaso(pasoId) {
 }
 
 async function cerrarPasoModerado(pasoId) {
-  if (!confirm("Esto fuerza el cierre de la sala sin pasar por el formulario del equipo. ¿Continuar?")) return;
+  const opcion = prompt("Cierre forzado: ingresá el código de opción elegida en nombre del equipo (A, B o C). Dejalo vacío para cerrar sin decisión.");
+  if (opcion === null) return;
   try {
-    await api(`/api/admin/paso/${pasoId}/cerrar`, { method: "POST", body: JSON.stringify({}) });
+    await api(`/api/admin/paso/${pasoId}/cerrar`, { method: "POST", body: JSON.stringify({ opcion_codigo: opcion.trim().toUpperCase() || undefined }) });
     showMsg("Sala cerrada por moderación.", "ok");
     cargarTodo();
   } catch (e) {
@@ -166,91 +178,52 @@ async function cerrarPasoModerado(pasoId) {
 
 function renderCrisisEval(overview) {
   const puedeEvaluar = session.usuario.staff_rol === "admin" || session.usuario.staff_rol === "jurado";
-  if (!overview.crisis_disparada) {
-    $("crisis-eval-area").innerHTML = `<p class="small-muted">Se dispara la Sala 6 para cargar evaluaciones.</p>`;
+  const salasDisparadas = overview.salas_crisis.filter((s) => s.disparada);
+  if (!salasDisparadas.length) {
+    $("crisis-eval-area").innerHTML = `<p class="small-muted">Se dispara una sala de crisis para cargar evaluaciones.</p>`;
     return;
   }
   if (!puedeEvaluar) {
     $("crisis-eval-area").innerHTML = `<p class="small-muted">Solo el jurado o el admin pueden cargar esta evaluación.</p>`;
     return;
   }
-  $("crisis-eval-area").innerHTML = overview.equipos
-    .map((eq) => {
-      const ev = eq.evaluacion_crisis || {};
-      return `
-      <h3>${eq.equipo.codigo} — ${eq.equipo.nombre}</h3>
-      <form class="grid" style="grid-template-columns: repeat(5, 1fr); align-items:end" onsubmit="return guardarEvalCrisis(event, '${eq.equipo.id}')">
-        <div><label>Claridad (1-5)</label><input type="number" min="1" max="5" name="claridad" value="${ev.claridad ?? ""}" /></div>
-        <div><label>Manejo incertidumbre</label><input type="number" min="1" max="5" name="manejo_incertidumbre" value="${ev.manejo_incertidumbre ?? ""}" /></div>
-        <div><label>Coherencia</label><input type="number" min="1" max="5" name="coherencia" value="${ev.coherencia ?? ""}" /></div>
-        <div><label>Control bajo presión</label><input type="number" min="1" max="5" name="control_presion" value="${ev.control_presion ?? ""}" /></div>
-        <div><button type="submit" class="small">Guardar</button></div>
-        <div style="grid-column: 1 / -1"><label>Comentario</label><input name="comentario" value="${ev.comentario ?? ""}" /></div>
-      </form>`;
+  $("crisis-eval-area").innerHTML = salasDisparadas
+    .map((sala) => {
+      const filas = overview.equipos
+        .map((eq) => {
+          const evalRow = eq.evaluaciones_crisis.find((c) => c.sala_slug === sala.slug);
+          const ev = evalRow?.evaluacion || {};
+          const yaEvaluado = !!evalRow?.evaluacion;
+          return `
+          <h4>${eq.equipo.codigo} — ${eq.equipo.nombre}</h4>
+          <form class="grid" style="grid-template-columns: repeat(5, 1fr); align-items:end" onsubmit="return guardarEvalCrisis(event, '${eq.equipo.id}', '${sala.sala_id}')">
+            <div><label>Claridad (1-5)</label><input type="number" min="1" max="5" name="claridad" value="${ev.claridad ?? ""}" ${yaEvaluado ? "disabled" : ""} required /></div>
+            <div><label>Manejo incertidumbre</label><input type="number" min="1" max="5" name="manejo_incertidumbre" value="${ev.manejo_incertidumbre ?? ""}" ${yaEvaluado ? "disabled" : ""} required /></div>
+            <div><label>Coherencia</label><input type="number" min="1" max="5" name="coherencia" value="${ev.coherencia ?? ""}" ${yaEvaluado ? "disabled" : ""} required /></div>
+            <div><label>Control bajo presión</label><input type="number" min="1" max="5" name="control_presion" value="${ev.control_presion ?? ""}" ${yaEvaluado ? "disabled" : ""} required /></div>
+            <div>${yaEvaluado ? '<span class="badge cerrado">Evaluada</span>' : '<button type="submit" class="small">Guardar</button>'}</div>
+            <div style="grid-column: 1 / -1"><label>Comentario</label><input name="comentario" value="${ev.comentario ?? ""}" ${yaEvaluado ? "disabled" : ""} /></div>
+          </form>`;
+        })
+        .join("<hr/>");
+      return `<h3>${sala.nombre}</h3>${filas}`;
     })
     .join("<hr/>");
 }
 
-async function guardarEvalCrisis(ev, equipoId) {
+async function guardarEvalCrisis(ev, equipoId, salaId) {
   ev.preventDefault();
   const fd = new FormData(ev.target);
-  const body = { equipo_id: equipoId };
-  for (const [k, v] of fd.entries()) body[k] = ["claridad","manejo_incertidumbre","coherencia","control_presion"].includes(k) ? Number(v) : v;
+  const body = { equipo_id: equipoId, sala_id: salaId };
+  for (const [k, v] of fd.entries()) body[k] = ["claridad", "manejo_incertidumbre", "coherencia", "control_presion"].includes(k) ? Number(v) : v;
   try {
-    await api("/api/admin/crisis/evaluar", { method: "POST", body: JSON.stringify(body) });
-    showMsg("Evaluación guardada.", "ok");
-  } catch (e) {
-    showMsg(e.message, "error");
-  }
-  return false;
-}
-
-async function cargarCongreso() {
-  try {
-    const proyectos = await api("/api/admin/congreso/proyectos");
-    const esAdmin = session.usuario.staff_rol === "admin";
-    if (!proyectos.length) {
-      $("congreso-area").innerHTML = `<p class="small-muted">Todavía no hay proyectos de ley entregados.</p>`;
-      return;
-    }
-    $("congreso-area").innerHTML = `
-      <table>
-        <thead><tr><th>Equipo</th><th>Sala</th><th>Proyecto</th><th>Resultado</th>${esAdmin ? "<th>Acción</th>" : ""}</tr></thead>
-        <tbody>
-          ${proyectos
-            .map(
-              (p) => `<tr>
-                <td>${p.equipo_codigo}</td>
-                <td>${p.sala_nombre}</td>
-                <td><strong>${p.nombre_proyecto}</strong><br/><span class="small-muted">${p.alcance_texto}</span></td>
-                <td>${p.resultado_congreso ? `<span class="badge cerrado">${p.resultado_congreso}</span>` : `<span class="badge pendiente">pendiente</span>`}</td>
-                ${
-                  esAdmin
-                    ? `<td>
-                        <button class="small" onclick="votarProyecto('${p.proyecto_ley_id}','aprobado')">Aprobar</button>
-                        <button class="small secondary" onclick="votarProyecto('${p.proyecto_ley_id}','modificado')">Modificado</button>
-                        <button class="small danger" onclick="votarProyecto('${p.proyecto_ley_id}','rechazado')">Rechazar</button>
-                      </td>`
-                    : ""
-                }
-              </tr>`
-            )
-            .join("")}
-        </tbody>
-      </table>`;
-  } catch (e) {
-    showMsg(e.message, "error");
-  }
-}
-
-async function votarProyecto(proyectoId, resultado) {
-  try {
-    await api("/api/admin/congreso/votar", { method: "POST", body: JSON.stringify({ proyecto_ley_id: proyectoId, resultado }) });
-    showMsg(`Proyecto marcado como ${resultado}.`, "ok");
+    const r = await api("/api/admin/crisis/evaluar", { method: "POST", body: JSON.stringify(body) });
+    showMsg(`Evaluación guardada. Impacto en Imagen Positiva: ${r.puntos > 0 ? "+" : ""}${r.puntos}.`, "ok");
     cargarTodo();
   } catch (e) {
     showMsg(e.message, "error");
   }
+  return false;
 }
 
 function fillEquipoSelect(equipos) {
@@ -260,13 +233,21 @@ function fillEquipoSelect(equipos) {
   sel.dataset.filled = "1";
 }
 
+function fillEjeSelect(ejes) {
+  const sel = $("ajuste-eje");
+  if (sel.dataset.filled === "1") return;
+  sel.innerHTML = (ejes || []).map((e) => `<option value="${e.slug}">${e.nombre}</option>`).join("");
+  sel.dataset.filled = "1";
+}
+
 $("form-puntaje").addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const equipo_id = $("ajuste-equipo").value;
+  const eje = $("ajuste-eje").value;
   const puntos = Number($("ajuste-puntos").value);
   const motivo = $("ajuste-motivo").value;
   try {
-    await api("/api/admin/puntaje/ajustar", { method: "POST", body: JSON.stringify({ equipo_id, puntos, motivo }) });
+    await api("/api/admin/puntaje/ajustar", { method: "POST", body: JSON.stringify({ equipo_id, eje, puntos, motivo }) });
     showMsg("Ajuste aplicado.", "ok");
     $("ajuste-motivo").value = "";
     $("ajuste-puntos").value = "";
@@ -282,9 +263,11 @@ function renderLeaderboard(tabla) {
       (row, i) => `<tr class="${i === 0 ? "leader-row-1" : ""}">
         <td>${i + 1}</td>
         <td>${row.codigo} — ${row.nombre}</td>
-        <td>${row.leyes_aprobadas}</td>
-        <td>${row.ajustes_manuales}</td>
-        <td>${row.puntaje_total}</td>
+        <td><strong>${row.ejes.imagen_positiva}</strong></td>
+        <td>${row.ejes.intencion_voto}</td>
+        <td>${row.ejes.gobernabilidad}</td>
+        <td>${row.ejes.salud_fiscal}</td>
+        <td>${row.ejes.orden_publico}</td>
         <td>${row.salas_completadas} / 5</td>
       </tr>`
     )

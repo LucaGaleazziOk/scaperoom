@@ -10,7 +10,7 @@
 <header class="topbar">
   <div>
     <h1>🛠️ Panel de Administración</h1>
-    <div class="sub" id="topbar-sub">Sala de Escape Política</div>
+    <div class="sub" id="topbar-sub">Sala de Escape Política — Gabinetes Provinciales</div>
   </div>
   <button class="secondary small" id="btn-logout" style="display:none">Salir</button>
 </header>
@@ -33,7 +33,7 @@
         <ul>
           <li><strong>admin / admin123</strong> — organizador general</li>
           <li><strong>facilitador1..5 / facil123</strong> — un facilitador por sala temática</li>
-          <li><strong>jurado1 / jurado123</strong> — jurado de la Sala 6</li>
+          <li><strong>jurado1 / jurado123</strong> — jurado de las salas de crisis</li>
         </ul>
       </div>
     </div>
@@ -42,10 +42,9 @@
   <div id="app-area" class="hidden">
 
     <div class="card">
-      <h2>Control de crisis (Sala 6)</h2>
-      <p class="small-muted">Convoca a los 5 Presidentes en simultáneo, en el momento no anunciado que decidas.</p>
-      <button class="danger" id="btn-crisis" >🚨 Disparar Sala 6 para los 5 equipos</button>
-      <span id="crisis-estado-badge"></span>
+      <h2>Control de salas de crisis</h2>
+      <p class="small-muted">Cada una se dispara para las 5 provincias en simultáneo, en el momento no anunciado que decidas. Son independientes de la Sala 4 (Crisis Interna), que es una sala temática más del recorrido.</p>
+      <div id="crisis-control-area"></div>
     </div>
 
     <div class="card">
@@ -54,36 +53,33 @@
     </div>
 
     <div class="card">
-      <h2>Evaluación Sala 6 (jurado)</h2>
-      <div id="crisis-eval-area" class="small-muted">Se dispara la Sala 6 para cargar evaluaciones.</div>
+      <h2>Evaluación de salas de crisis (jurado)</h2>
+      <div id="crisis-eval-area" class="small-muted">Se dispara una sala de crisis para cargar evaluaciones.</div>
     </div>
 
     <div class="card">
-      <h2>Congreso — votación de proyectos de ley</h2>
-      <div id="congreso-area"></div>
-    </div>
-
-    <div class="card">
-      <h2>Ajuste manual de puntaje</h2>
+      <h2>Ajuste manual de un eje</h2>
       <form id="form-puntaje" class="grid grid-2">
         <div>
-          <label>Equipo</label>
+          <label>Provincia</label>
           <select id="ajuste-equipo" required></select>
-          <label>Puntos (positivo o negativo)</label>
-          <input id="ajuste-puntos" type="number" step="1" required />
+          <label>Eje</label>
+          <select id="ajuste-eje" required></select>
         </div>
         <div>
+          <label>Puntos (positivo o negativo)</label>
+          <input id="ajuste-puntos" type="number" step="1" required />
           <label>Motivo</label>
-          <input id="ajuste-motivo" required placeholder="Ej: bonus por desempeño en Sala 6" />
+          <input id="ajuste-motivo" required placeholder="Ej: bonus por desempeño en sala de crisis" />
           <button type="submit">Aplicar ajuste</button>
         </div>
       </form>
     </div>
 
     <div class="card">
-      <h2>Leaderboard</h2>
+      <h2>Leaderboard — gana Imagen Positiva más alta</h2>
       <table>
-        <thead><tr><th>#</th><th>Equipo</th><th>Leyes aprobadas</th><th>Ajustes</th><th>Puntaje total</th><th>Salas completadas</th></tr></thead>
+        <thead><tr><th>#</th><th>Provincia</th><th>Imagen Positiva</th><th>Intención de Voto</th><th>Gobernabilidad</th><th>Salud Fiscal</th><th>Orden Público</th><th>Salas completadas</th></tr></thead>
         <tbody id="tabla-leaderboard"></tbody>
       </table>
     </div>

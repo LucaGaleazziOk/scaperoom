@@ -210,6 +210,31 @@ tr:hover td { background: var(--blue-100); }
 .msg.error { background: #fdecea; color: #7a2019; border-left-color: var(--red); }
 .msg.ok { background: #eaf6ee; color: #14532d; border-left-color: var(--green); }
 
+.opciones-lista { display: flex; flex-direction: column; gap: 10px; margin: 10px 0 16px; }
+.opcion-radio {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #dfe4ee;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--blue-900, #1d2733);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.opcion-radio:hover { border-color: var(--gold); background: #fffaf0; }
+.opcion-radio input[type="radio"] { width: auto; margin: 3px 0 0; flex: none; }
+
+.eje-barra { margin-bottom: 10px; }
+.eje-barra .eje-label { display: flex; justify-content: space-between; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--gray); margin-bottom: 3px; }
+.eje-barra .eje-track { background: #e5e9f0; border-radius: 6px; height: 10px; overflow: hidden; }
+.eje-barra .eje-fill { height: 100%; background: var(--blue-800); border-radius: 6px; }
+.eje-barra.principal .eje-fill { background: var(--gold); }
+
 .objetivo-secreto {
   background: #fbf3de;
   border: 1px dashed var(--gold-dark);

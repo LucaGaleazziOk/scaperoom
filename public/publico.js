@@ -14,18 +14,22 @@ function render(data) {
       (row, i) => `<tr class="${i === 0 ? "leader-row-1" : ""}">
         <td class="rank">${i + 1}</td>
         <td>${row.nombre}</td>
-        <td>${row.leyes_aprobadas}</td>
-        <td>${row.puntaje_total}</td>
+        <td>${row.ejes.imagen_positiva}</td>
+        <td>${row.ejes.intencion_voto}</td>
+        <td>${row.ejes.gobernabilidad}</td>
+        <td>${row.ejes.salud_fiscal}</td>
+        <td>${row.ejes.orden_publico}</td>
       </tr>`
     )
     .join("");
 
-  document.getElementById("crisis-line").textContent = data.crisis_disparada
-    ? "🚨 La Sala 6 (crisis de comunicación) ya fue convocada"
+  const crisisDisparadas = (data.crisis || []).filter((c) => c.disparada).map((c) => c.nombre);
+  document.getElementById("crisis-line").textContent = crisisDisparadas.length
+    ? `🚨 Disparadas: ${crisisDisparadas.join(" · ")}`
     : "Recorrido en curso por las salas temáticas";
 
   document.getElementById("progreso-linea").textContent =
-    `Progreso global: ${data.progreso_global.completados} / ${data.progreso_global.total} salas temáticas cerradas`;
+    `Progreso global: ${data.progreso_global.completados} / ${data.progreso_global.total} salas temáticas cerradas — gana la provincia con mayor Imagen Positiva`;
 }
 
 const socket = io({ auth: { canal: "publico" } });

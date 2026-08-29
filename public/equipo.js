@@ -25,7 +25,7 @@ $("btn-login").addEventListener("click", async () => {
   const codigo = $("in-codigo").value.trim();
   const pin = $("in-pin").value.trim();
   const nombre = $("in-nombre").value.trim();
-  if (!codigo || !pin) return showMsg("Completá código de equipo y PIN.", "error");
+  if (!codigo || !pin) return showMsg("Completá código de provincia y PIN.", "error");
   try {
     const data = await api("/api/auth/equipo/login", {
       method: "POST",
@@ -57,7 +57,10 @@ function iniciarApp() {
 function conectarSocket() {
   socket = io({ auth: { token: session.token } });
   socket.on("estado:actualizado", cargarEstado);
-  socket.on("crisis:iniciada", () => { showMsg("🚨 Se disparó la Sala 6 — convocatoria a los Presidentes.", "ok"); cargarEstado(); });
+  socket.on("crisis:iniciada", (payload) => {
+    showMsg(`🚨 ${payload?.mensaje || "Se disparó una sala de crisis."}`, "ok");
+    cargarEstado();
+  });
 }
 
 async function cargarEstado() {
@@ -69,6 +72,14 @@ async function cargarEstado() {
   }
 }
 
+const NOMBRE_EJE = {
+  imagen_positiva: "Imagen Positiva",
+  intencion_voto: "Intención de Voto",
+  gobernabilidad: "Gobernabilidad",
+  salud_fiscal: "Salud Fiscal",
+  orden_publico: "Orden Público",
+};
+
 function render(data) {
   $("equipo-nombre").textContent = `${data.equipo.codigo} — ${data.equipo.nombre}`;
   $("equipo-contexto").textContent = data.equipo.contexto_arranque;
@@ -77,28 +88,36 @@ function render(data) {
   $("objetivo-secreto").textContent = data.mi_rol?.objetivo_secreto || "—";
 
   const pasos = data.pasos;
-  const pasoTematico = pasos.find((p) => p.estado === "en_curso" && p.sala_tipo !== "crisis");
-  const pasoCrisis = pasos.find((p) => p.sala_tipo === "crisis" && p.estado === "en_curso");
 
-  // Crisis
-  if (pasoCrisis) {
+  // Salas de crisis disparadas y pendientes de jugar/evaluar
+  const crisisDisparadas = (data.crisis || []).filter((c) => c.disparada);
+  if (crisisDisparadas.length) {
     $("crisis-card").style.display = "block";
-    $("crisis-texto").innerHTML = `<strong>${pasoCrisis.encuadre || ""}</strong><br/><br/>${pasoCrisis.caso_critico || ""}`;
+    $("crisis-texto").innerHTML = crisisDisparadas
+      .map(
+        (c) => `
+        <div class="msg ${c.evaluada ? "ok" : "error"}" style="margin-bottom:10px">
+          <strong>${c.nombre}</strong>${c.evaluada ? " — ya evaluada" : " — el jurado la va a evaluar en vivo"}<br/>
+          ${c.caso_critico || ""}
+        </div>`
+      )
+      .join("");
   } else {
     $("crisis-card").style.display = "none";
   }
 
-  // Paso activo
+  // Sala temática activa
+  const pasoActivo = pasos.find((p) => p.estado === "en_curso");
   const cont = $("paso-activo-content");
-  if (!pasoTematico) {
-    const proximaPendiente = pasos.filter((p) => p.sala_tipo !== "crisis" && p.estado === "pendiente").sort((a,b)=>a.orden_index-b.orden_index)[0];
+  if (!pasoActivo) {
+    const proximaPendiente = pasos.filter((p) => p.estado === "pendiente").sort((a, b) => a.orden_index - b.orden_index)[0];
     if (proximaPendiente) {
       cont.innerHTML = `<p class="small-muted">Su próxima sala es <strong>${proximaPendiente.sala_nombre}</strong>. Esperando a que el facilitador la inicie.</p>`;
     } else {
-      cont.innerHTML = `<p class="small-muted">El equipo completó todas las salas temáticas. Esperen la sesión de Congreso.</p>`;
+      cont.innerHTML = `<p class="small-muted">El equipo completó las 5 salas temáticas. Sigan atentos a las salas de crisis y al cierre de la jornada.</p>`;
     }
   } else {
-    cont.innerHTML = renderPasoActivo(pasoTematico);
+    cont.innerHTML = renderPasoActivo(pasoActivo);
     const form = document.getElementById("form-entrega");
     if (form) form.addEventListener("submit", onEntregar);
   }
@@ -106,13 +125,11 @@ function render(data) {
   // Historial
   const tbody = $("tabla-recorrido");
   tbody.innerHTML = pasos
-    .filter((p) => !p.oculto)
     .sort((a, b) => a.orden_index - b.orden_index)
     .map((p) => {
       const cart = p.cartelito_entrada ? `<span class="badge cartelito-${p.cartelito_entrada}">${p.cartelito_entrada}</span>` : "—";
-      const dec = p.decision ? p.decision.opcion_codigo : "—";
-      const numLabel = p.sala_tipo === "crisis" ? "Sala 6" : (p.orden_index + 1);
-      return `<tr><td>${numLabel}</td><td>${p.sala_nombre || "—"}</td><td><span class="badge ${p.estado}">${p.estado}</span></td><td>${cart}</td><td>${dec}</td></tr>`;
+      const dec = p.decision ? `${p.decision.opcion_codigo} — ${p.decision.opcion_etiqueta || ""}` : "—";
+      return `<tr><td>${p.orden_index + 1}</td><td>${p.sala_nombre || "—"}</td><td><span class="badge ${p.estado}">${p.estado}</span></td><td>${cart}</td><td>${dec}</td></tr>`;
     })
     .join("");
 }
@@ -124,45 +141,38 @@ function renderPasoActivo(paso) {
     : "";
 
   if (paso.decision) {
-    // ya se entregó: mostrar resumen de solo lectura
     return `
       <h3>${paso.sala_nombre}</h3>
       ${apertura}
       <p>${paso.encuadre || ""}</p>
-      <p>${paso.caso_critico || ""}</p>
+      <p><strong>Problema:</strong> ${paso.enunciado || ""}</p>
       <div class="msg ok">
-        <strong>Decisión registrada:</strong> ${paso.decision.opcion_codigo} → cartelito ${paso.decision.cartelito_resultante}<br/>
-        <strong>Proyecto:</strong> ${paso.proyecto ? paso.proyecto.nombre_proyecto : "—"}<br/>
-        ${paso.consecuencia_narrativa ? `<strong>Consecuencia:</strong> ${paso.consecuencia_narrativa}<br/>` : ""}
-        ${paso.impacto_presupuestario ? `<strong>Impacto presupuestario:</strong> ${paso.impacto_presupuestario}` : ""}
+        <strong>Decisión registrada:</strong> ${paso.decision.opcion_codigo} — ${paso.decision.opcion_etiqueta || ""}
       </div>
-      <p class="small-muted">Esta sala ya fue cerrada. Esperen al facilitador de la siguiente estación.</p>
+      <p class="small-muted">El efecto de esta decisión sobre los indicadores de la provincia no se revela: se verá reflejado en el leaderboard público. Esperen al facilitador de la siguiente estación.</p>
     `;
   }
 
   const opcionesHtml = opciones
-    .map((o) => `<option value="${o.codigo}">${o.codigo} — ${o.etiqueta || ""}</option>`)
+    .map(
+      (o) => `
+      <label class="opcion-radio">
+        <input type="radio" name="opcion_codigo" value="${o.codigo}" required />
+        <strong>${o.codigo}) ${o.etiqueta}</strong> — ${o.texto}
+      </label>`
+    )
     .join("");
 
   return `
-    <h3>${paso.sala_nombre}${paso.proyecto_ley_nombre ? " — Proyecto: " + paso.proyecto_ley_nombre : ""}</h3>
+    <h3>${paso.sala_nombre}</h3>
     ${apertura}
     <p>${paso.encuadre || ""}</p>
-    <p>${paso.caso_critico || ""}</p>
+    <p><strong>Problema:</strong> ${paso.enunciado || ""}</p>
     <form id="form-entrega">
       <input type="hidden" name="paso_id" value="${paso.paso_id}" />
-      <label>Decisión del equipo</label>
-      <select name="opcion_codigo" required>
-        <option value="">— elegir —</option>
-        ${opcionesHtml}
-      </select>
-      <label>Nombre del proyecto de ley</label>
-      <input name="nombre_proyecto" required />
-      <label>Alcance / fundamento (una línea, firmado por el Presidente)</label>
-      <textarea name="alcance_texto" required></textarea>
-      <label>Firmado por</label>
-      <input name="firmado_por" placeholder="Nombre del/la Presidente/a" />
-      <button type="submit">Entregar y cerrar sala</button>
+      <label>Elijan una de las 3 opciones. No van a ver de antemano su efecto sobre los indicadores de la provincia.</label>
+      <div class="opciones-lista">${opcionesHtml}</div>
+      <button type="submit">Confirmar decisión y cerrar sala</button>
     </form>
   `;
 }
@@ -171,9 +181,10 @@ async function onEntregar(ev) {
   ev.preventDefault();
   const fd = new FormData(ev.target);
   const body = Object.fromEntries(fd.entries());
+  if (!body.opcion_codigo) return showMsg("Elegí una opción antes de confirmar.", "error");
   try {
-    const r = await api("/api/team/entregar", { method: "POST", body: JSON.stringify(body) });
-    showMsg(`Entregado. Cartelito resultante: ${r.cartelito_resultante}`, "ok");
+    await api("/api/team/entregar", { method: "POST", body: JSON.stringify(body) });
+    showMsg("Decisión registrada. La sala queda cerrada.", "ok");
     cargarEstado();
   } catch (e) {
     showMsg(e.message, "error");
