@@ -9,15 +9,20 @@ const router = express.Router();
 
 // -----------------------------------------------------------------------
 // POST /api/auth/equipo/login
-// Login simplificado de jugadores: codigo de equipo + PIN + rol elegido.
-// Si el rol todavia no fue tomado por nadie en ese equipo, crea el Usuario;
-// si ya existe, simplemente reautentica (permite reingresar desde otro
-// dispositivo si alguien perdio el celular durante el evento).
+// Login unico por equipo: codigo de equipo + PIN. No hay seleccion de rol:
+// el unico acceso habilitado por equipo queda siempre a nombre del rol
+// "Jefe/a de Gabinete de Ministros", que es quien administra el panel en
+// representacion de todo el equipo (el resto de los roles se juegan de
+// forma presencial con la carpeta fisica, pero no tienen login propio).
+// Si es el primer ingreso de ese equipo, crea el Usuario; si ya existe,
+// simplemente reautentica (permite reingresar desde otro dispositivo).
 // -----------------------------------------------------------------------
+const ROL_ADMINISTRADOR_SLUG = "jefe_gabinete";
+
 router.post("/equipo/login", (req, res) => {
-  const { codigo, pin, rol_slug, nombre } = req.body || {};
-  if (!codigo || !pin || !rol_slug) {
-    return res.status(400).json({ error: "Faltan datos: codigo, pin y rol_slug son obligatorios." });
+  const { codigo, pin, nombre } = req.body || {};
+  if (!codigo || !pin) {
+    return res.status(400).json({ error: "Faltan datos: codigo y pin son obligatorios." });
   }
 
   const equipo = db.prepare("SELECT * FROM equipo WHERE codigo = ?").get(codigo.trim().toUpperCase());
@@ -25,8 +30,8 @@ router.post("/equipo/login", (req, res) => {
     return res.status(401).json({ error: "Codigo de equipo o PIN incorrectos." });
   }
 
-  const rol = db.prepare("SELECT * FROM rol WHERE slug = ?").get(rol_slug);
-  if (!rol) return res.status(400).json({ error: "Rol invalido." });
+  const rol = db.prepare("SELECT * FROM rol WHERE slug = ?").get(ROL_ADMINISTRADOR_SLUG);
+  if (!rol) return res.status(500).json({ error: "El rol de Jefe/a de Gabinete no esta configurado." });
 
   let usuario = db
     .prepare("SELECT * FROM usuario WHERE equipo_id = ? AND rol_id = ?")
@@ -38,7 +43,10 @@ router.post("/equipo/login", (req, res) => {
       `INSERT INTO usuario (id, tipo, nombre, equipo_id, rol_id) VALUES (?, 'jugador', ?, ?, ?)`
     ).run(id, nombre || rol.nombre, equipo.id, rol.id);
     usuario = db.prepare("SELECT * FROM usuario WHERE id = ?").get(id);
-    emitAdmin("equipo:rol_tomado", { equipo_id: equipo.id, rol_slug });
+    emitAdmin("equipo:rol_tomado", { equipo_id: equipo.id, rol_slug: rol.slug });
+  } else if (nombre && nombre.trim() && nombre.trim() !== usuario.nombre) {
+    db.prepare("UPDATE usuario SET nombre = ? WHERE id = ?").run(nombre.trim(), usuario.id);
+    usuario = db.prepare("SELECT * FROM usuario WHERE id = ?").get(usuario.id);
   }
 
   const token = signToken({
@@ -57,19 +65,6 @@ router.post("/equipo/login", (req, res) => {
     equipo: { id: equipo.id, codigo: equipo.codigo, nombre: equipo.nombre },
     rol: { id: rol.id, slug: rol.slug, nombre: rol.nombre },
   });
-});
-
-// GET /api/auth/roles-disponibles?codigo=GOB-1  -> que roles ya fueron tomados (para la UI de login)
-router.get("/roles-disponibles", (req, res) => {
-  const { codigo } = req.query;
-  const equipo = db.prepare("SELECT * FROM equipo WHERE codigo = ?").get((codigo || "").trim().toUpperCase());
-  if (!equipo) return res.status(404).json({ error: "Equipo no encontrado." });
-  const roles = db.prepare("SELECT id, slug, nombre, orden FROM rol ORDER BY orden ASC").all();
-  const tomados = db
-    .prepare("SELECT rol_id FROM usuario WHERE equipo_id = ?")
-    .all(equipo.id)
-    .map((r) => r.rol_id);
-  res.json(roles.map((r) => ({ ...r, tomado: tomados.includes(r.id) })));
 });
 
 // -----------------------------------------------------------------------
