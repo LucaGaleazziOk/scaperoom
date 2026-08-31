@@ -80,6 +80,8 @@ function conectarSocket() {
   // El equipo también recibe las actualizaciones del panel público para
   // mantener su propia miniatura del contador en vivo.
   socket.on("leaderboard:actualizado", cargarMiniTablero);
+  socket.on("escrutinio:publicado", cargarMiniTablero);
+  socket.on("escrutinio:despublicado", cargarMiniTablero);
   // Tras un reinicio total desde el panel de administracion, esta provincia
   // ya no existe con el mismo id: recargar vuelve a mostrar el login.
   socket.on("app:reset", () => {
@@ -102,10 +104,29 @@ async function cargarMiniTablero() {
   try {
     const res = await fetch("/api/public/leaderboard");
     const data = await res.json();
-    const propia = (data.leaderboard || []).find((row) => row.codigo === session.equipo.codigo);
-    if (!propia) return;
     const el = $("mini-tablero");
     if (!el) return;
+
+    const escrutinio = data.escrutinio || { todo_cerrado: false, publicado: false };
+
+    if (escrutinio.publicado) {
+      const resultado = (escrutinio.resultados || []).find((r) => r.codigo === session.equipo.codigo);
+      const pct = resultado?.porcentaje ?? 0;
+      el.innerHTML = `
+        <div class="eje-barra principal">
+          <div class="eje-label"><span>Resultado final</span><span>${pct.toFixed(1)}%</span></div>
+          <div class="eje-track"><div class="eje-fill" style="width:${Math.max(0, Math.min(100, pct))}%"></div></div>
+        </div>`;
+      return;
+    }
+
+    if (escrutinio.todo_cerrado) {
+      el.innerHTML = `<p class="small-muted">🗳️ Todas las salas cerraron. Aguardando el escrutinio final de los organizadores…</p>`;
+      return;
+    }
+
+    const propia = (data.leaderboard || []).find((row) => row.codigo === session.equipo.codigo);
+    if (!propia) return;
     el.innerHTML = ORDEN_EJES.map((slug) => {
       const valor = propia.ejes[slug];
       const principal = slug === "imagen_positiva" ? " principal" : "";

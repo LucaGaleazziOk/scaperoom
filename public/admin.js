@@ -71,7 +71,17 @@ function iniciarApp() {
 
 function conectarSocket() {
   socket = io({ auth: { token: session.token } });
-  ["paso:iniciado", "paso:cerrado", "crisis:iniciada", "crisis:evaluada", "puntaje:ajustado", "equipo:rol_tomado"].forEach((ev) => {
+  [
+    "paso:iniciado",
+    "paso:cerrado",
+    "crisis:iniciada",
+    "crisis:evaluada",
+    "puntaje:ajustado",
+    "equipo:rol_tomado",
+    "escrutinio:guardado",
+    "escrutinio:publicado",
+    "escrutinio:despublicado",
+  ].forEach((ev) => {
     socket.on(ev, () => cargarTodo());
   });
   // Tras un reinicio total (ver btn-reset-todo) los equipos/usuarios son
@@ -110,6 +120,114 @@ async function cargarTodo() {
     fillEjeSelect(overview.ejes);
   } catch (e) {
     showMsg(e.message, "error");
+  }
+  cargarEscrutinio();
+}
+
+// ---------------- ESCRUTINIO FINAL ----------------
+async function cargarEscrutinio() {
+  if (session.usuario.staff_rol !== "admin") {
+    $("escrutinio-estado-msg").textContent = "Solo el admin puede cargar y publicar el resultado final.";
+    $("escrutinio-form-area").innerHTML = "";
+    return;
+  }
+  try {
+    const data = await api("/api/admin/escrutinio");
+    renderEscrutinio(data);
+  } catch (e) {
+    showMsg(e.message, "error");
+  }
+}
+
+function renderEscrutinio(data) {
+  const { equipos, estado } = data;
+
+  $("escrutinio-estado-msg").textContent = estado.publicado
+    ? `Resultado final publicado${estado.publicado_en ? " a las " + new Date(estado.publicado_en).toLocaleTimeString() : ""}. El panel público y las miniaturas de equipo ya lo están mostrando.`
+    : estado.todo_cerrado
+    ? "Todas las salas temáticas y de crisis están cerradas. Cargá los porcentajes y publicá cuando quieras."
+    : "Todavía hay salas temáticas o de crisis sin cerrar. Podés dejar un borrador, pero no vas a poder publicar hasta que todo esté cerrado (mientras tanto el panel público sigue mostrando el tablero en vivo).";
+
+  const filas = equipos
+    .map(
+      (e) => `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <strong style="min-width:230px">${e.codigo} — ${e.nombre}</strong>
+        <input type="number" min="0" max="100" step="0.1" style="width:100px"
+          data-equipo="${e.id}" class="escrutinio-input"
+          value="${e.resultado_final_pct ?? ""}" ${estado.publicado ? "disabled" : ""} /> %
+      </div>`
+    )
+    .join("");
+
+  $("escrutinio-form-area").innerHTML = `
+    ${filas}
+    <p class="small-muted">Suma actual: <strong id="escrutinio-suma">0</strong>% (no hace falta que sea exactamente 100, pero suele ayudar)</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="secondary small" id="btn-escrutinio-guardar" ${estado.publicado ? "disabled" : ""}>Guardar borrador</button>
+      <button class="danger" id="btn-escrutinio-publicar" ${estado.publicado || !estado.todo_cerrado ? "disabled" : ""}>🎉 Confirmar y publicar resultado final</button>
+      ${estado.publicado ? '<button class="secondary small" id="btn-escrutinio-despublicar">Despublicar (corregir)</button>' : ""}
+    </div>
+  `;
+
+  const inputs = Array.from(document.querySelectorAll(".escrutinio-input"));
+  const actualizarSuma = () => {
+    const suma = inputs.reduce((acc, inp) => acc + (Number(inp.value) || 0), 0);
+    const sumaEl = $("escrutinio-suma");
+    if (sumaEl) {
+      sumaEl.textContent = suma.toFixed(1);
+      sumaEl.style.color = Math.abs(suma - 100) < 0.5 ? "var(--blue-800)" : "#b23b3b";
+    }
+  };
+  inputs.forEach((inp) => inp.addEventListener("input", actualizarSuma));
+  actualizarSuma();
+
+  const leerResultados = () => inputs.map((inp) => ({ equipo_id: inp.dataset.equipo, porcentaje: Number(inp.value) || 0 }));
+
+  const btnGuardar = $("btn-escrutinio-guardar");
+  if (btnGuardar) {
+    btnGuardar.addEventListener("click", async () => {
+      try {
+        await api("/api/admin/escrutinio/guardar", { method: "POST", body: JSON.stringify({ resultados: leerResultados() }) });
+        showMsg("Borrador guardado.", "ok");
+      } catch (e) {
+        showMsg(e.message, "error");
+      }
+    });
+  }
+
+  const btnPublicar = $("btn-escrutinio-publicar");
+  if (btnPublicar) {
+    btnPublicar.addEventListener("click", async () => {
+      if (
+        !confirm(
+          "Esto va a mostrar el resultado final en la pantalla pública con la animación de conteo, y las provincias van a dejar de ver su marcador en vivo. ¿Confirmás?"
+        )
+      )
+        return;
+      try {
+        await api("/api/admin/escrutinio/guardar", { method: "POST", body: JSON.stringify({ resultados: leerResultados() }) });
+        await api("/api/admin/escrutinio/publicar", { method: "POST" });
+        showMsg("Resultado final publicado.", "ok");
+        cargarEscrutinio();
+      } catch (e) {
+        showMsg(e.message, "error");
+      }
+    });
+  }
+
+  const btnDespublicar = $("btn-escrutinio-despublicar");
+  if (btnDespublicar) {
+    btnDespublicar.addEventListener("click", async () => {
+      if (!confirm("¿Volver a ocultar el resultado final para corregir algo?")) return;
+      try {
+        await api("/api/admin/escrutinio/despublicar", { method: "POST" });
+        showMsg("Resultado despublicado. Podés corregir y volver a publicar.", "ok");
+        cargarEscrutinio();
+      } catch (e) {
+        showMsg(e.message, "error");
+      }
+    });
   }
 }
 
