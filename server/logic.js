@@ -105,10 +105,41 @@ function construirLeaderboard() {
       ejes: ejesFinales,
       puntaje_total: ejesFinales[EJE_PRINCIPAL],
       salas_completadas: salasCompletadas(e.id),
+      resultado_final_pct: e.resultado_final_pct,
     };
   });
   tabla.sort((a, b) => b.puntaje_total - a.puntaje_total);
   return tabla;
+}
+
+// Estado del "escrutinio final": si ya cerraron todas las salas tematicas
+// para las 5 provincias y, de las salas de crisis que se llegaron a
+// disparar, todas tienen evaluacion cargada para las 5 provincias. Mientras
+// no este todoCerrado, el panel publico sigue mostrando el tablero en vivo;
+// una vez que lo esta, deja de mostrarlo y espera a que el admin publique
+// el resultado final (ver server/routes/admin.js, /escrutinio/publicar).
+function construirEstadoEscrutinio() {
+  const jornada = db.prepare("SELECT * FROM jornada ORDER BY creado_en DESC LIMIT 1").get();
+  const totalPasos = db.prepare("SELECT COUNT(*) as c FROM paso_recorrido").get().c;
+  const pasosCerrados = db.prepare("SELECT COUNT(*) as c FROM paso_recorrido WHERE estado = 'cerrado'").get().c;
+  const totalEquipos = db.prepare("SELECT COUNT(*) as c FROM equipo").get().c;
+
+  const salasCrisisDisparadas = db
+    .prepare("SELECT s.id FROM sala s JOIN crisis_estado ce ON ce.sala_id = s.id WHERE ce.disparada = 1")
+    .all();
+  const crisisPendientes = salasCrisisDisparadas.filter((s) => {
+    const evaluadas = db.prepare("SELECT COUNT(*) as c FROM evaluacion_crisis WHERE sala_id = ?").get(s.id).c;
+    return evaluadas < totalEquipos;
+  }).length;
+
+  const todoCerrado = totalPasos > 0 && pasosCerrados === totalPasos && crisisPendientes === 0;
+
+  return {
+    todo_cerrado: todoCerrado,
+    publicado: !!jornada?.resultados_publicados,
+    publicado_en: jornada?.resultados_publicados_en || null,
+    jornada_id: jornada?.id || null,
+  };
 }
 
 module.exports = {
@@ -122,4 +153,5 @@ module.exports = {
   salasCompletadas,
   calcularPuntosCrisis,
   construirLeaderboard,
+  construirEstadoEscrutinio,
 };

@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS jornada (
   id TEXT PRIMARY KEY,
   nombre TEXT NOT NULL,
   estado TEXT NOT NULL DEFAULT 'planificada',
+  resultados_publicados INTEGER NOT NULL DEFAULT 0,
+  resultados_publicados_en TEXT,
   creado_en TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -56,7 +58,8 @@ CREATE TABLE IF NOT EXISTS equipo (
   objetivos_generales TEXT,    -- JSON array de strings
   tension_interna TEXT,
   ejes_json TEXT NOT NULL,     -- JSON: valores iniciales/actuales de los 5 ejes de desempeño
-  orden_rotacion_json TEXT NOT NULL -- JSON array de sala_slug (solo tematicas) en el orden de este equipo
+  orden_rotacion_json TEXT NOT NULL, -- JSON array de sala_slug (solo tematicas) en el orden de este equipo
+  resultado_final_pct REAL     -- % de "votos" que le asignan los organizadores en el escrutinio final (no se toca solo)
 );
 
 CREATE TABLE IF NOT EXISTS usuario (
@@ -137,5 +140,19 @@ CREATE TABLE IF NOT EXISTS evento_log (
   creado_en TEXT NOT NULL DEFAULT (datetime('now'))
 );
 `);
+
+// Migracion idempotente: si la base ya existia sin estas columnas (por
+// ejemplo en desarrollo local, sin borrar el archivo .db), las agrega sin
+// perder los datos existentes. En Render, sin disco persistente, cada
+// redeploy resiembra desde cero y esto no llega a ejecutarse nunca.
+function ensureColumn(tabla, columna, definicion) {
+  const columnas = db.prepare(`PRAGMA table_info(${tabla})`).all().map((c) => c.name);
+  if (!columnas.includes(columna)) {
+    db.exec(`ALTER TABLE ${tabla} ADD COLUMN ${columna} ${definicion}`);
+  }
+}
+ensureColumn("jornada", "resultados_publicados", "INTEGER NOT NULL DEFAULT 0");
+ensureColumn("jornada", "resultados_publicados_en", "TEXT");
+ensureColumn("equipo", "resultado_final_pct", "REAL");
 
 module.exports = db;

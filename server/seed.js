@@ -48,8 +48,8 @@ const SALAS_TEMATICAS = [
           "Crece fuertemente la cantidad de personas en situación de calle y se pide ampliar el presupuesto de asistencia, justo cuando el gobierno quiere mostrarle superávit a los inversores.",
         opciones: [
           { etiqueta: "Ampliar el gasto social", texto: "Aumentar la asistencia social recortando obra pública menor, sosteniendo el equilibrio fiscal general.", efectos: { imagen_positiva: 5, salud_fiscal: -3, gobernabilidad: 2, orden_publico: 3 } },
-          { etiqueta: "Sostener el superávit", texto: "Mantener el superávit como bandera de gestión y derivar el problema a ONGs con fondos limitados.", efectos: { salud_fiscal: 6, imagen_positiva: -4, orden_publico: -4 } },
-          { etiqueta: "Endeudarse para asistir", texto: "Aumentar subsidios de transporte y asistencia social financiándolo con deuda de corto plazo en dólares.", efectos: { imagen_positiva: 5, intencion_voto: 4, salud_fiscal: -9, gobernabilidad: -2 } },
+          { etiqueta: "Sostener el superávit", texto: "Mantener el superávit como bandera de gestión y derivar el problema a ONGs con fondos limitados.", efectos: { salud_fiscal: 6, imagen_positiva: 5, orden_publico: -4 } },
+          { etiqueta: "Endeudarse para asistir", texto: "Aumentar subsidios de transporte y asistencia social financiándolo con deuda de corto plazo en dólares.", efectos: { imagen_positiva: -4, intencion_voto: 4, salud_fiscal: -9, gobernabilidad: -2 } },
         ],
       },
       FSA: {
@@ -200,8 +200,8 @@ const SALAS_TEMATICAS = [
         enunciado:
           "Un sector de intendentes del conurbano amenaza con romper el bloque legislativo propio si no se les garantiza más presupuesto municipal.",
         opciones: [
-          { etiqueta: "Ceder presupuesto", texto: "Ceder presupuesto adicional a los intendentes díscolos para sostener la unidad del bloque.", efectos: { gobernabilidad: 6, salud_fiscal: -5, imagen_positiva: -1 } },
-          { etiqueta: "Enfrentarlos", texto: "Enfrentar públicamente a los intendentes díscolos y sostener la distribución actual.", efectos: { imagen_positiva: 2, gobernabilidad: -6, orden_publico: -2 } },
+          { etiqueta: "Ceder presupuesto", texto: "Ceder presupuesto adicional a los intendentes díscolos para sostener la unidad del bloque.", efectos: { gobernabilidad: 6, salud_fiscal: -5, imagen_positiva: 2 } },
+          { etiqueta: "Enfrentarlos", texto: "Enfrentar públicamente a los intendentes díscolos y sostener la distribución actual.", efectos: { imagen_positiva: -1, gobernabilidad: -6, orden_publico: -2 } },
           { etiqueta: "Mediación partidaria", texto: "Buscar un mediador partidario externo para recomponer el vínculo sin ceder presupuesto de inmediato.", efectos: { gobernabilidad: 2, imagen_positiva: 1, salud_fiscal: 1 } },
         ],
       },
@@ -218,8 +218,8 @@ const SALAS_TEMATICAS = [
         enunciado:
           "El bloque legislativo nacional propio debe definir su voto en una votación clave, presionado por gobernadores confrontativos y por un oficialismo nacional que ofrece más fondos a cambio de acompañamiento.",
         opciones: [
-          { etiqueta: "Alinear con Nación", texto: "Alinear el bloque con el oficialismo nacional a cambio de mayores transferencias discrecionales.", efectos: { salud_fiscal: 6, gobernabilidad: 3, imagen_positiva: -2 } },
-          { etiqueta: "Sostener a los confrontativos", texto: "Sostener la alianza con los gobernadores más confrontativos, aun a costo de menos fondos.", efectos: { imagen_positiva: 3, intencion_voto: 2, salud_fiscal: -5 } },
+          { etiqueta: "Alinear con Nación", texto: "Alinear el bloque con el oficialismo nacional a cambio de mayores transferencias discrecionales.", efectos: { salud_fiscal: 6, gobernabilidad: 3, imagen_positiva: 3 } },
+          { etiqueta: "Sostener a los confrontativos", texto: "Sostener la alianza con los gobernadores más confrontativos, aun a costo de menos fondos.", efectos: { imagen_positiva: -2, intencion_voto: 2, salud_fiscal: -5 } },
           { etiqueta: "Dividir el bloque", texto: "Dividir el bloque para no romper explícitamente con ninguno de los dos lados.", efectos: { gobernabilidad: -4, imagen_positiva: -3, salud_fiscal: 1 } },
         ],
       },
@@ -263,9 +263,9 @@ const SALAS_TEMATICAS = [
         enunciado:
           "Los profesionales de salud del sistema porteño reclaman equiparación salarial con otras jurisdicciones, en medio de un año electoral.",
         opciones: [
-          { etiqueta: "Otorgar la equiparación", texto: "Otorgar la equiparación salarial reclamada, usando parte del superávit fiscal.", efectos: { imagen_positiva: 5, salud_fiscal: -5, gobernabilidad: 2 } },
-          { etiqueta: "Rechazar el reclamo", texto: "Rechazar el reclamo para sostener el superávit como bandera de gestión.", efectos: { salud_fiscal: 6, imagen_positiva: -5, orden_publico: -3 } },
-          { etiqueta: "Bono no remunerativo", texto: "Ofrecer un bono no remunerativo en lugar de un aumento de base.", efectos: { imagen_positiva: 1, salud_fiscal: 2, orden_publico: -1 } },
+          { etiqueta: "Otorgar la equiparación", texto: "Otorgar la equiparación salarial reclamada, usando parte del superávit fiscal.", efectos: { imagen_positiva: 1, salud_fiscal: -5, gobernabilidad: 2 } },
+          { etiqueta: "Rechazar el reclamo", texto: "Rechazar el reclamo para sostener el superávit como bandera de gestión.", efectos: { salud_fiscal: 6, imagen_positiva: 5, orden_publico: -3 } },
+          { etiqueta: "Bono no remunerativo", texto: "Ofrecer un bono no remunerativo en lugar de un aumento de base.", efectos: { imagen_positiva: -5, salud_fiscal: 2, orden_publico: -1 } },
         ],
       },
       FSA: {
