@@ -66,6 +66,8 @@ function iniciarApp() {
   $("topbar-sub").textContent = `${session.equipo.nombre} — ${session.rol.nombre}`;
   conectarSocket();
   cargarEstado();
+  cargarMiniTablero();
+  setInterval(cargarMiniTablero, 15000); // respaldo por si se pierde el socket
 }
 
 function conectarSocket() {
@@ -75,12 +77,48 @@ function conectarSocket() {
     showMsg(`🚨 ${payload?.mensaje || "Se disparó una sala de crisis."}`, "ok");
     cargarEstado();
   });
+  // El equipo también recibe las actualizaciones del panel público para
+  // mantener su propia miniatura del contador en vivo.
+  socket.on("leaderboard:actualizado", cargarMiniTablero);
   // Tras un reinicio total desde el panel de administracion, esta provincia
   // ya no existe con el mismo id: recargar vuelve a mostrar el login.
   socket.on("app:reset", () => {
     showMsg("La jornada se reinició. Recargando…", "ok");
     setTimeout(() => location.reload(), 1000);
   });
+}
+
+const NOMBRE_EJE_MINI = {
+  imagen_positiva: "Imagen Positiva",
+  intencion_voto: "Intención de Voto",
+  gobernabilidad: "Gobernabilidad",
+  salud_fiscal: "Salud Fiscal",
+  orden_publico: "Orden Público",
+};
+const ORDEN_EJES = ["imagen_positiva", "intencion_voto", "gobernabilidad", "salud_fiscal", "orden_publico"];
+
+// ---------------- MINIATURA DEL TABLERO PÚBLICO ----------------
+async function cargarMiniTablero() {
+  try {
+    const res = await fetch("/api/public/leaderboard");
+    const data = await res.json();
+    const propia = (data.leaderboard || []).find((row) => row.codigo === session.equipo.codigo);
+    if (!propia) return;
+    const el = $("mini-tablero");
+    if (!el) return;
+    el.innerHTML = ORDEN_EJES.map((slug) => {
+      const valor = propia.ejes[slug];
+      const principal = slug === "imagen_positiva" ? " principal" : "";
+      const v = Math.max(0, Math.min(100, valor));
+      return `
+        <div class="eje-barra${principal}">
+          <div class="eje-label"><span>${NOMBRE_EJE_MINI[slug]}</span><span>${valor}</span></div>
+          <div class="eje-track"><div class="eje-fill" style="width:${v}%"></div></div>
+        </div>`;
+    }).join("");
+  } catch (e) {
+    // Si falla, se deja el último valor renderizado; no interrumpe el resto del panel.
+  }
 }
 
 async function cargarEstado() {

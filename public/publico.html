@@ -3,11 +3,10 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Leaderboard — Sala de Escape Política</title>
+<title>Panel Público — Sala de Escape Política</title>
 <link rel="stylesheet" href="styles.css" />
 <style>
-  .container { max-width: 1000px; }
-  .card { padding: 26px 32px; }
+  .container { max-width: 1280px; }
   .hero { text-align: center; padding: 44px 20px 18px; position: relative; z-index: 1; }
   .hero .trophy { display: inline-block; font-size: 46px; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.35)); }
   h1.title {
@@ -32,18 +31,38 @@
     display: inline-block;
   }
   .subtitle-wrap { text-align: center; margin-bottom: 10px; }
-  table { font-size: 15px; }
-  th { font-size: 11px; }
-  td { padding: 12px 10px; }
   .progreso {
     text-align: center;
     color: var(--gray);
-    margin-top: 16px;
+    margin-top: 22px;
     font-size: 13px;
     font-weight: 600;
   }
-  .rank { font-size: 22px; font-weight: 900; color: var(--blue-800); }
-  .leader-row-1 .rank { color: var(--gold-dark); }
+
+  /* 5 cajas aisladas, sin ranking ni orden por puntaje */
+  .grid-provincias {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 18px;
+  }
+  .provincia-card {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 20px 20px 16px;
+    border-top: 3px solid var(--blue-800);
+    box-shadow: 0 14px 30px rgba(5, 14, 33, 0.35);
+  }
+  .provincia-card h2 {
+    font-size: 16px;
+    font-weight: 900;
+    color: var(--blue-900);
+    text-transform: uppercase;
+    letter-spacing: .02em;
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--gold);
+  }
+  .provincia-card .eje-barra:last-child { margin-bottom: 0; }
 </style>
 </head>
 <body>
@@ -53,13 +72,8 @@
     <div class="subtitle-wrap"><p class="subtitle" id="crisis-line">Cargando…</p></div>
   </div>
   <div class="container">
-    <div class="card">
-      <table>
-        <thead><tr><th>#</th><th>Provincia</th><th>Imagen Positiva</th><th>Intención de Voto</th><th>Gobernabilidad</th><th>Salud Fiscal</th><th>Orden Público</th></tr></thead>
-        <tbody id="tabla-leaderboard"></tbody>
-      </table>
-      <p class="progreso" id="progreso-linea"></p>
-    </div>
+    <div class="grid-provincias" id="grid-provincias"></div>
+    <p class="progreso" id="progreso-linea"></p>
   </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 <script src="publico.js"></script>

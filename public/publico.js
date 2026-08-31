@@ -1,3 +1,12 @@
+const NOMBRE_EJE = {
+  imagen_positiva: "Imagen Positiva",
+  intencion_voto: "Intención de Voto",
+  gobernabilidad: "Gobernabilidad",
+  salud_fiscal: "Salud Fiscal",
+  orden_publico: "Orden Público",
+};
+const ORDEN_EJES = ["imagen_positiva", "intencion_voto", "gobernabilidad", "salud_fiscal", "orden_publico"];
+
 async function cargar() {
   try {
     const res = await fetch("/api/public/leaderboard");
@@ -8,18 +17,27 @@ async function cargar() {
   }
 }
 
+function barraEje(slug, valor) {
+  const principal = slug === "imagen_positiva" ? " principal" : "";
+  const v = Math.max(0, Math.min(100, valor));
+  return `
+    <div class="eje-barra${principal}">
+      <div class="eje-label"><span>${NOMBRE_EJE[slug]}</span><span>${valor}</span></div>
+      <div class="eje-track"><div class="eje-fill" style="width:${v}%"></div></div>
+    </div>`;
+}
+
 function render(data) {
-  document.getElementById("tabla-leaderboard").innerHTML = data.leaderboard
+  // Cada provincia es una caja aislada e independiente: no hay ranking,
+  // no hay número de puesto ni resaltado de "líder". El orden que llega
+  // del servidor ya es fijo (por alta), no por puntaje.
+  document.getElementById("grid-provincias").innerHTML = (data.leaderboard || [])
     .map(
-      (row, i) => `<tr class="${i === 0 ? "leader-row-1" : ""}">
-        <td class="rank">${i + 1}</td>
-        <td>${row.nombre}</td>
-        <td>${row.ejes.imagen_positiva}</td>
-        <td>${row.ejes.intencion_voto}</td>
-        <td>${row.ejes.gobernabilidad}</td>
-        <td>${row.ejes.salud_fiscal}</td>
-        <td>${row.ejes.orden_publico}</td>
-      </tr>`
+      (row) => `
+      <div class="provincia-card">
+        <h2>${row.nombre}</h2>
+        ${ORDEN_EJES.map((slug) => barraEje(slug, row.ejes[slug])).join("")}
+      </div>`
     )
     .join("");
 
@@ -29,7 +47,7 @@ function render(data) {
     : "Recorrido en curso por las salas temáticas";
 
   document.getElementById("progreso-linea").textContent =
-    `Progreso global: ${data.progreso_global.completados} / ${data.progreso_global.total} salas temáticas cerradas — gana la provincia con mayor Imagen Positiva`;
+    `Progreso global: ${data.progreso_global.completados} / ${data.progreso_global.total} salas temáticas cerradas`;
 }
 
 const socket = io({ auth: { canal: "publico" } });
