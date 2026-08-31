@@ -48,8 +48,8 @@ const SALAS_TEMATICAS = [
           "Crece fuertemente la cantidad de personas en situación de calle y se pide ampliar el presupuesto de asistencia, justo cuando el gobierno quiere mostrarle superávit a los inversores.",
         opciones: [
           { etiqueta: "Ampliar el gasto social", texto: "Aumentar la asistencia social recortando obra pública menor, sosteniendo el equilibrio fiscal general.", efectos: { imagen_positiva: 5, salud_fiscal: -3, gobernabilidad: 2, orden_publico: 3 } },
-          { etiqueta: "Sostener el superávit", texto: "Mantener el superávit como bandera de gestión y derivar el problema a ONGs con fondos limitados.", efectos: { salud_fiscal: 6, imagen_positiva: -6, orden_publico: -4 } },
-          { etiqueta: "Endeudarse para asistir", texto: "Aumentar subsidios de transporte y asistencia social financiándolo con deuda de corto plazo en dólares.", efectos: { imagen_positiva: 7, intencion_voto: 4, salud_fiscal: -9, gobernabilidad: -2 } },
+          { etiqueta: "Sostener el superávit", texto: "Mantener el superávit como bandera de gestión y derivar el problema a ONGs con fondos limitados.", efectos: { salud_fiscal: 6, imagen_positiva: -4, orden_publico: -4 } },
+          { etiqueta: "Endeudarse para asistir", texto: "Aumentar subsidios de transporte y asistencia social financiándolo con deuda de corto plazo en dólares.", efectos: { imagen_positiva: 5, intencion_voto: 4, salud_fiscal: -9, gobernabilidad: -2 } },
         ],
       },
       FSA: {
@@ -66,7 +66,7 @@ const SALAS_TEMATICAS = [
           "Una sequía golpea la cosecha de soja y cereales y cae la recaudación ligada al agro, justo cuando se necesita financiar el operativo de seguridad en Rosario.",
         opciones: [
           { etiqueta: "Priorizar seguridad", texto: "Recortar infraestructura rural para reforzar de inmediato el operativo de seguridad en Rosario.", efectos: { orden_publico: 7, imagen_positiva: 4, salud_fiscal: -2, gobernabilidad: -3 } },
-          { etiqueta: "Auxiliar al agro", texto: "Lanzar créditos blandos y diferimiento impositivo para el sector agroindustrial, postergando el refuerzo de seguridad.", efectos: { gobernabilidad: 6, salud_fiscal: -4, orden_publico: -5, imagen_positiva: -2 } },
+          { etiqueta: "Auxiliar al agro", texto: "Lanzar créditos blandos y diferimiento impositivo para el sector agroindustrial, postergando el refuerzo de seguridad.", efectos: { gobernabilidad: 6, salud_fiscal: -4, orden_publico: -5, imagen_positiva: -4 } },
           { etiqueta: "Pedir auxilio a Nación", texto: "Solicitar ayuda financiera extraordinaria a la Nación a cambio de acompañamiento legislativo.", efectos: { salud_fiscal: 5, imagen_positiva: 2, intencion_voto: -2, gobernabilidad: 3 } },
         ],
       },
@@ -112,7 +112,7 @@ const SALAS_TEMATICAS = [
         opciones: [
           { etiqueta: "Respuesta de emergencia", texto: "Lanzar un programa de perforación de pozos y camiones cisterna de emergencia con fondos propios.", efectos: { imagen_positiva: 5, salud_fiscal: -4, gobernabilidad: 3 } },
           { etiqueta: "Pedir ayuda externa", texto: "Solicitar financiamiento nacional/internacional para un plan de agua estructural, de respuesta más lenta.", efectos: { salud_fiscal: 3, imagen_positiva: 1, gobernabilidad: -1 } },
-          { etiqueta: "Minimizar el reclamo", texto: "Evitar el conflicto mediático sin asignar fondos nuevos al reclamo.", efectos: { salud_fiscal: 2, imagen_positiva: -7, orden_publico: -3 } },
+          { etiqueta: "Priorizar otras urgencias", texto: "Postergar una respuesta específica al reclamo y mantener la agenda de gobierno sin cambios ni fondos nuevos.", efectos: { salud_fiscal: 2, imagen_positiva: -6, orden_publico: -3 } },
         ],
       },
       SFE: {
@@ -120,7 +120,7 @@ const SALAS_TEMATICAS = [
           "Organizaciones sociales de barrios populares de Rosario piden un plan de inclusión para jóvenes en riesgo, como respuesta social a la violencia.",
         opciones: [
           { etiqueta: "Plan de inclusión joven", texto: "Crear un programa de empleo joven y becas en los barrios más golpeados por la violencia.", efectos: { imagen_positiva: 5, salud_fiscal: -3, orden_publico: 3 } },
-          { etiqueta: "Solo seguridad", texto: "Priorizar exclusivamente el gasto en seguridad y postergar el plan social.", efectos: { orden_publico: 2, imagen_positiva: -3, intencion_voto: -2 } },
+          { etiqueta: "Solo seguridad", texto: "Priorizar exclusivamente el gasto en seguridad y postergar el plan social.", efectos: { orden_publico: 2, imagen_positiva: -5, intencion_voto: -2 } },
           { etiqueta: "Gesto simbólico", texto: "Anunciar el plan social pero con presupuesto simbólico, más como gesto comunicacional.", efectos: { imagen_positiva: 2, gobernabilidad: 1, orden_publico: -2 } },
         ],
       },
@@ -130,7 +130,7 @@ const SALAS_TEMATICAS = [
         opciones: [
           { etiqueta: "Mesa de diálogo y pausa", texto: "Abrir una mesa de diálogo formal y pausar temporalmente la actividad extractiva en la zona en conflicto.", efectos: { imagen_positiva: 5, salud_fiscal: -3, gobernabilidad: -3 } },
           { etiqueta: "Sostener la extracción", texto: "Sostener la actividad extractiva y ofrecer compensaciones económicas puntuales a las comunidades.", efectos: { gobernabilidad: 4, salud_fiscal: 1, imagen_positiva: -3, orden_publico: -4 } },
-          { etiqueta: "Judicializar", texto: "Derivar el reclamo a la Justicia y esperar una resolución de tribunales antes de actuar.", efectos: { gobernabilidad: 1, imagen_positiva: -5, orden_publico: -6 } },
+          { etiqueta: "Judicializar", texto: "Derivar el reclamo a la Justicia y esperar una resolución de tribunales antes de actuar.", efectos: { gobernabilidad: 1, imagen_positiva: -4, orden_publico: -6 } },
         ],
       },
     },
@@ -174,7 +174,7 @@ const SALAS_TEMATICAS = [
           "Un hecho de violencia narco de alto impacto mediático en Rosario obliga a definir la estrategia de seguridad frente a la opinión pública nacional.",
         opciones: [
           { etiqueta: "Pedir fuerzas federales", texto: "Solicitar formalmente la intervención y refuerzo de fuerzas federales en Rosario.", efectos: { orden_publico: 6, imagen_positiva: 3, gobernabilidad: -2 } },
-          { etiqueta: "Solo fuerzas provinciales", texto: "Reforzar exclusivamente con fuerzas provinciales para mostrar autosuficiencia.", efectos: { gobernabilidad: 4, imagen_positiva: -2, orden_publico: 1, salud_fiscal: -4 } },
+          { etiqueta: "Solo fuerzas provinciales", texto: "Reforzar exclusivamente con fuerzas provinciales para mostrar autosuficiencia.", efectos: { gobernabilidad: 4, imagen_positiva: -5, orden_publico: 1, salud_fiscal: -4 } },
           { etiqueta: "Refuerzo + mano dura", texto: "Combinar el pedido de refuerzo federal con un discurso público de mano dura total.", efectos: { imagen_positiva: 7, intencion_voto: 5, orden_publico: 3, salud_fiscal: -3, gobernabilidad: -3 } },
         ],
       },
@@ -182,9 +182,9 @@ const SALAS_TEMATICAS = [
         enunciado:
           "Un corte de ruta prolongado por un reclamo gremial estatal empieza a afectar el traslado de crudo, y las petroleras presionan para que el gobierno intervenga.",
         opciones: [
-          { etiqueta: "Negociar y ceder", texto: "Negociar directamente con el gremio y ceder parte del reclamo para liberar la ruta rápido.", efectos: { orden_publico: 5, gobernabilidad: 3, salud_fiscal: -4 } },
+          { etiqueta: "Negociar y ceder", texto: "Negociar directamente con el gremio y ceder parte del reclamo para liberar la ruta rápido.", efectos: { orden_publico: 5, gobernabilidad: 3, salud_fiscal: -4, imagen_positiva: 3 } },
           { etiqueta: "Desalojo judicial", texto: "Pedir el desalojo judicial y policial del corte para garantizar la actividad petrolera.", efectos: { imagen_positiva: -4, intencion_voto: 3, orden_publico: -3, gobernabilidad: -2 } },
-          { etiqueta: "Dejar correr el conflicto", texto: "Evitar una decisión firme mientras se busca una salida política de fondo.", efectos: { imagen_positiva: -6, orden_publico: -6, salud_fiscal: -2 } },
+          { etiqueta: "Vía política", texto: "Postergar una intervención directa mientras se negocia una salida política de fondo.", efectos: { imagen_positiva: -6, orden_publico: -6, salud_fiscal: -2 } },
         ],
       },
     },
@@ -227,7 +227,7 @@ const SALAS_TEMATICAS = [
         enunciado:
           "Los socios de la coalición de gobierno presionan por un ajuste fiscal más duro, mientras los sindicatos amenazan un paro si eso afecta los salarios estatales.",
         opciones: [
-          { etiqueta: "Avanzar con el ajuste", texto: "Avanzar con el ajuste que piden los socios de la coalición, aceptando el conflicto sindical.", efectos: { salud_fiscal: 6, orden_publico: -5, gobernabilidad: 2 } },
+          { etiqueta: "Avanzar con el ajuste", texto: "Avanzar con el ajuste que piden los socios de la coalición, aceptando el conflicto sindical.", efectos: { salud_fiscal: 6, orden_publico: -5, gobernabilidad: 2, imagen_positiva: -3 } },
           { etiqueta: "Frenar el ajuste", texto: "Frenar el ajuste para evitar el paro, a costa de tensionar con los socios de la coalición.", efectos: { orden_publico: 3, gobernabilidad: -4, salud_fiscal: -3 } },
           { etiqueta: "Ajuste negociado", texto: "Buscar un ajuste intermedio negociado con los sindicatos antes de anunciarlo.", efectos: { gobernabilidad: 3, salud_fiscal: 2, imagen_positiva: 2 } },
         ],
@@ -238,7 +238,7 @@ const SALAS_TEMATICAS = [
         opciones: [
           { etiqueta: "Profundizar el acercamiento", texto: "Profundizar el acercamiento con Nación, ya en curso por la condonación de deuda, pese al ruido interno.", efectos: { salud_fiscal: 5, gobernabilidad: -3, imagen_positiva: 2 } },
           { etiqueta: "Reforzar la autonomía", texto: "Frenar el acercamiento y reforzar el perfil autónomo de \"Provincias Unidas\".", efectos: { gobernabilidad: 4, imagen_positiva: 1, salud_fiscal: -4 } },
-          { etiqueta: "Ambigüedad calculada", texto: "Mantener ambigüedad pública mientras se negocia en privado con ambos sectores.", efectos: { gobernabilidad: -2, imagen_positiva: -3, intencion_voto: -1 } },
+          { etiqueta: "Doble canal", texto: "Sostener un discurso público equilibrado mientras se negocia por separado con cada sector.", efectos: { gobernabilidad: -2, imagen_positiva: -3, intencion_voto: -1 } },
         ],
       },
     },
@@ -273,7 +273,7 @@ const SALAS_TEMATICAS = [
           "Se conoce un caso de desabastecimiento de insumos básicos en un hospital del interior provincial, con repercusión en medios nacionales.",
         opciones: [
           { etiqueta: "Compra de urgencia", texto: "Comprar de urgencia los insumos con fondos de otras áreas y comunicar una respuesta inmediata.", efectos: { imagen_positiva: 5, salud_fiscal: -4, gobernabilidad: 1 } },
-          { etiqueta: "Minimizar el hecho", texto: "Minimizar el hecho públicamente como \"un caso aislado\", sin anuncios de fondo.", efectos: { salud_fiscal: 2, imagen_positiva: -7, orden_publico: -2 } },
+          { etiqueta: "Respuesta comunicacional acotada", texto: "Responder públicamente calificando el episodio como un hecho puntual, sin anuncios de fondo.", efectos: { salud_fiscal: 2, imagen_positiva: -3, orden_publico: -2 } },
           { etiqueta: "Plan integral lento", texto: "Anunciar un plan integral de reequipamiento hospitalario financiado por Nación, de implementación lenta.", efectos: { imagen_positiva: 2, salud_fiscal: 1, gobernabilidad: 2 } },
         ],
       },
@@ -282,7 +282,7 @@ const SALAS_TEMATICAS = [
           "El aumento de heridos por hechos de violencia satura las guardias de los hospitales públicos de Rosario.",
         opciones: [
           { etiqueta: "Refuerzo de urgencia", texto: "Reforzar de urgencia personal y equipamiento de las guardias de Rosario con fondos extraordinarios.", efectos: { imagen_positiva: 5, salud_fiscal: -4, orden_publico: 2 } },
-          { etiqueta: "Redistribuir recursos", texto: "Redistribuir recursos de hospitales del interior hacia Rosario, sin fondos nuevos.", efectos: { gobernabilidad: -3, salud_fiscal: 1, imagen_positiva: -1 } },
+          { etiqueta: "Redistribuir recursos", texto: "Redistribuir recursos de hospitales del interior hacia Rosario, sin fondos nuevos.", efectos: { gobernabilidad: -3, salud_fiscal: 1, imagen_positiva: -2 } },
           { etiqueta: "Pedir ayuda a Nación", texto: "Pedir asistencia sanitaria de emergencia a Nación, en articulación con el pedido de seguridad.", efectos: { salud_fiscal: 4, imagen_positiva: 2, gobernabilidad: 2 } },
         ],
       },
@@ -291,7 +291,7 @@ const SALAS_TEMATICAS = [
           "Con el nuevo margen fiscal por la baja de retenciones petroleras, el sindicato de salud exige que la mejora se traduzca en insumos e infraestructura hospitalaria postergada por años.",
         opciones: [
           { etiqueta: "Invertir en salud", texto: "Destinar buena parte del nuevo margen fiscal a infraestructura y equipamiento hospitalario.", efectos: { imagen_positiva: 6, salud_fiscal: -5, gobernabilidad: 3 } },
-          { etiqueta: "Priorizar deuda y salarios", texto: "Priorizar el pago de deuda y salarios atrasados generales antes que infraestructura de salud específica.", efectos: { salud_fiscal: 5, imagen_positiva: -3, orden_publico: -2 } },
+          { etiqueta: "Priorizar deuda y salarios", texto: "Priorizar el pago de deuda y salarios atrasados generales antes que infraestructura de salud específica.", efectos: { salud_fiscal: 5, imagen_positiva: -1, orden_publico: -2 } },
           { etiqueta: "Obra a mediano plazo", texto: "Anunciar un plan de obra hospitalaria a mediano plazo, financiado con un crédito internacional.", efectos: { imagen_positiva: 3, salud_fiscal: -1, gobernabilidad: 1 } },
         ],
       },
@@ -564,4 +564,4 @@ if (require.main === module) {
   process.exit(0);
 }
 
-module.exports = { run, resetAndReseed };
+module.exports = { run, resetAndReseed, SALAS_TEMATICAS, SALAS_CRISIS, EQUIPOS, ORDEN_TEMATICAS };

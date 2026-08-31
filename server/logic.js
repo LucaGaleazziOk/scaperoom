@@ -101,6 +101,7 @@ function construirLeaderboard() {
       equipo_id: e.id,
       codigo: e.codigo,
       nombre: e.nombre,
+      carpeta_numero: e.carpeta_numero,
       ejes: ejesFinales,
       puntaje_total: ejesFinales[EJE_PRINCIPAL],
       salas_completadas: salasCompletadas(e.id),

@@ -47,6 +47,12 @@ const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 setIo(io);
 
+// ---------------------------------------------------------------------
+// Autorizacion de canales de tiempo real: cada cliente se autentica con el
+// mismo JWT que usa contra la API REST, y el servidor decide a que "rooms"
+// de Socket.io lo suscribe. Esto reproduce, para el canal en vivo, la misma
+// segmentacion de datos que las rutas REST hacen via requireAuth/requireStaff.
+// ---------------------------------------------------------------------
 io.on("connection", (socket) => {
   const { token, canal } = socket.handshake.auth || {};
 
@@ -73,6 +79,9 @@ io.on("connection", (socket) => {
     socket.join("publico");
   } else if (user.tipo === "jugador") {
     socket.join(`equipo:${user.equipo_id}`);
+    // También se suma a "publico" para recibir en vivo la miniatura de su
+    // propio contador en el panel de equipo (mismos datos que ya son públicos).
+    socket.join("publico");
   }
 });
 
