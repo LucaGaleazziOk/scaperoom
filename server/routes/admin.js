@@ -6,6 +6,7 @@ const { emitAdmin, emitEquipo, emitPublico, emitGlobal } = require("../realtime"
 const {
   derivarCartelito,
   construirLeaderboard,
+  construirEstadoEscrutinio,
   getPasosDeEquipo,
   getProblemaParaEquipo,
   aplicarEfectos,
@@ -234,6 +235,81 @@ router.post("/puntaje/ajustar", requireStaff("admin"), (req, res) => {
 // GET /api/admin/leaderboard
 router.get("/leaderboard", requireStaff("admin", "facilitador", "jurado"), (req, res) => {
   res.json(construirLeaderboard());
+});
+
+// -----------------------------------------------------------------------
+// Escrutinio final: los organizadores le asignan manualmente a cada
+// provincia un % de "votos" final (no se deriva automaticamente de Imagen
+// Positiva) y lo publican cuando quieran. El panel publico y las miniaturas
+// de equipo dejan de mostrar el tablero en vivo apenas se cierran todas las
+// salas (tematicas y de crisis) y esperan a esta publicacion para revelar
+// el resultado con la animacion de conteo.
+// -----------------------------------------------------------------------
+
+// GET /api/admin/escrutinio  (solo admin) — trae el borrador actual + estado
+router.get("/escrutinio", requireStaff("admin"), (req, res) => {
+  const equipos = db
+    .prepare("SELECT id, codigo, nombre, carpeta_numero, resultado_final_pct FROM equipo ORDER BY carpeta_numero ASC")
+    .all();
+  res.json({ equipos, estado: construirEstadoEscrutinio() });
+});
+
+// POST /api/admin/escrutinio/guardar  (solo admin) — guarda el borrador sin publicar.
+// body: { resultados: [{ equipo_id, porcentaje }, ...] }
+router.post("/escrutinio/guardar", requireStaff("admin"), (req, res) => {
+  const { resultados } = req.body || {};
+  if (!Array.isArray(resultados)) return res.status(400).json({ error: "Falta el array 'resultados'." });
+
+  const tx = db.transaction(() => {
+    for (const r of resultados) {
+      if (!r || !r.equipo_id) continue;
+      const pct = Number(r.porcentaje);
+      db.prepare("UPDATE equipo SET resultado_final_pct = ? WHERE id = ?").run(Number.isFinite(pct) ? pct : null, r.equipo_id);
+    }
+  });
+  tx();
+
+  emitAdmin("escrutinio:guardado", {});
+  res.json({ ok: true });
+});
+
+// POST /api/admin/escrutinio/publicar  (solo admin) — revela el resultado
+// final en el panel publico y en las miniaturas de equipo. Requiere que
+// todas las salas (tematicas + crisis disparadas) esten cerradas/evaluadas.
+router.post("/escrutinio/publicar", requireStaff("admin"), (req, res) => {
+  const estado = construirEstadoEscrutinio();
+  if (!estado.todo_cerrado) {
+    return res.status(409).json({ error: "Todavía hay salas temáticas o de crisis sin cerrar." });
+  }
+  const jornada = db.prepare("SELECT * FROM jornada ORDER BY creado_en DESC LIMIT 1").get();
+  if (!jornada) return res.status(404).json({ error: "No hay jornada activa." });
+
+  const now = new Date().toISOString();
+  db.prepare("UPDATE jornada SET resultados_publicados = 1, resultados_publicados_en = ? WHERE id = ?").run(now, jornada.id);
+
+  const leaderboard = construirLeaderboard();
+  const resultados = leaderboard.map((r) => ({
+    equipo_id: r.equipo_id,
+    codigo: r.codigo,
+    nombre: r.nombre,
+    porcentaje: r.resultado_final_pct ?? 0,
+  }));
+
+  emitAdmin("escrutinio:publicado", { resultados });
+  emitPublico("escrutinio:publicado", { resultados });
+  res.json({ ok: true, resultados });
+});
+
+// POST /api/admin/escrutinio/despublicar  (solo admin) — por si hay que
+// corregir un valor despues de haber revelado el resultado.
+router.post("/escrutinio/despublicar", requireStaff("admin"), (req, res) => {
+  const jornada = db.prepare("SELECT * FROM jornada ORDER BY creado_en DESC LIMIT 1").get();
+  if (!jornada) return res.status(404).json({ error: "No hay jornada activa." });
+  db.prepare("UPDATE jornada SET resultados_publicados = 0, resultados_publicados_en = NULL WHERE id = ?").run(jornada.id);
+
+  emitAdmin("escrutinio:despublicado", {});
+  emitPublico("escrutinio:despublicado", {});
+  res.json({ ok: true });
 });
 
 // -----------------------------------------------------------------------

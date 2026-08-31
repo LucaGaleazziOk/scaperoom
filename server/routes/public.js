@@ -1,6 +1,6 @@
 const express = require("express");
 const db = require("../db");
-const { construirLeaderboard } = require("../logic");
+const { construirLeaderboard, construirEstadoEscrutinio } = require("../logic");
 const { EJES } = require("../ejes");
 
 const router = express.Router();
@@ -21,11 +21,29 @@ router.get("/leaderboard", (req, res) => {
   const totalPasos = db.prepare("SELECT COUNT(*) as c FROM paso_recorrido").get().c;
   const pasosCerrados = db.prepare("SELECT COUNT(*) as c FROM paso_recorrido WHERE estado = 'cerrado'").get().c;
 
+  const estado = construirEstadoEscrutinio();
+  const escrutinio = {
+    todo_cerrado: estado.todo_cerrado,
+    publicado: estado.publicado,
+    publicado_en: estado.publicado_en,
+    // Los porcentajes finales solo se exponen una vez publicados: antes de
+    // eso son un borrador interno del admin, no un dato publico.
+    resultados: estado.publicado
+      ? leaderboard.map((r) => ({
+          equipo_id: r.equipo_id,
+          codigo: r.codigo,
+          nombre: r.nombre,
+          porcentaje: r.resultado_final_pct ?? 0,
+        }))
+      : null,
+  };
+
   res.json({
     leaderboard,
     ejes: EJES,
     crisis,
     progreso_global: { completados: pasosCerrados, total: totalPasos },
+    escrutinio,
   });
 });
 
