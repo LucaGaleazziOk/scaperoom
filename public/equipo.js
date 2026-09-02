@@ -81,6 +81,10 @@ function conectarSocket() {
   // forma remota, aparte del disparo: hay que refrescar el estado para que
   // la pantalla completa empiece a contar.
   socket.on("crisis:cronometro_iniciado", cargarEstado);
+  // Cuando el jurado evalúa esta sala de crisis para este equipo, hay que
+  // refrescar el estado para que la pantalla completa no cerrable se oculte
+  // sola (ver renderCrisisOverlay: se muestra mientras disparada && !evaluada).
+  socket.on("crisis:evaluada", cargarEstado);
   // El equipo también recibe las actualizaciones del panel público para
   // mantener su propia miniatura del contador en vivo.
   socket.on("leaderboard:actualizado", cargarMiniTablero);
