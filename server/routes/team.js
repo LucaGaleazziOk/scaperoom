@@ -9,6 +9,7 @@ const {
   getPasosDeEquipo,
   getProblemaParaEquipo,
   getAperturaVariante,
+  construirCasoCriticoParaEquipo,
   aplicarEfectos,
   construirLeaderboard,
 } = require("../logic");
@@ -75,13 +76,19 @@ router.get("/estado", (req, res) => {
       slug: sala.slug,
       nombre: sala.nombre,
       disparada: !!estado?.disparada,
-      caso_critico: estado?.disparada ? sala.caso_critico : null,
+      // El caso_critico se arma "en vivo" enganchado con la ultima decision
+      // que este equipo haya tomado hasta este momento (la crisis se puede
+      // disparar en cualquier punto del recorrido): ver construirCasoCriticoParaEquipo.
+      caso_critico: estado?.disparada ? construirCasoCriticoParaEquipo(sala, equipo.id) : null,
       evaluada: !!evaluada,
       // El cronometro de 8 minutos lo arranca el admin de forma remota,
       // separado del "disparar": hasta entonces el equipo ve la consigna
-      // sin cuenta regresiva.
+      // sin cuenta regresiva. Tambien puede pausarse o finalizarse antes de
+      // tiempo, siempre desde el panel de administracion.
       cronometro_iniciado_en: estado?.cronometro_iniciado_en || null,
       duracion_segundos: estado?.duracion_segundos || 480,
+      cronometro_pausado_en: estado?.cronometro_pausado_en || null,
+      cronometro_finalizado_en: estado?.cronometro_finalizado_en || null,
     };
   });
 
@@ -136,9 +143,9 @@ router.post("/entregar", (req, res) => {
     const efectosAplicados = aplicarEfectos(equipo.id, opcion.efectos || {});
 
     db.prepare(
-      `INSERT INTO decision (id, paso_id, opcion_codigo, opcion_etiqueta, efectos_json, cartelito_resultante, registrado_por)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
-    ).run(uuid(), paso.id, opcion.codigo, opcion.etiqueta, JSON.stringify(efectosAplicados), cartelito, req.user.sub);
+      `INSERT INTO decision (id, paso_id, opcion_codigo, opcion_etiqueta, opcion_texto, efectos_json, cartelito_resultante, registrado_por)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(uuid(), paso.id, opcion.codigo, opcion.etiqueta, opcion.texto || null, JSON.stringify(efectosAplicados), cartelito, req.user.sub);
 
     db.prepare(`UPDATE paso_recorrido SET estado = 'cerrado', cerrado_en = ? WHERE id = ?`).run(now, paso.id);
 

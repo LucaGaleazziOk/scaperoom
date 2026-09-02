@@ -85,6 +85,8 @@ router.get("/overview", requireStaff("admin", "facilitador", "jurado"), (req, re
       disparada: !!crisisEstados[i]?.disparada,
       cronometro_iniciado_en: crisisEstados[i]?.cronometro_iniciado_en || null,
       duracion_segundos: crisisEstados[i]?.duracion_segundos || 480,
+      cronometro_pausado_en: crisisEstados[i]?.cronometro_pausado_en || null,
+      cronometro_finalizado_en: crisisEstados[i]?.cronometro_finalizado_en || null,
     })),
     leaderboard: construirLeaderboard(),
   });
@@ -137,9 +139,9 @@ router.post("/paso/:id/cerrar", requireStaff("admin", "facilitador"), (req, res)
         const efectosAplicados = aplicarEfectos(equipo.id, opcion.efectos || {});
         const cartelito = derivarCartelito(opcion.codigo);
         db.prepare(
-          `INSERT INTO decision (id, paso_id, opcion_codigo, opcion_etiqueta, efectos_json, cartelito_resultante, registrado_por)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`
-        ).run(uuid(), paso.id, opcion.codigo, opcion.etiqueta, JSON.stringify(efectosAplicados), cartelito, req.user.sub);
+          `INSERT INTO decision (id, paso_id, opcion_codigo, opcion_etiqueta, opcion_texto, efectos_json, cartelito_resultante, registrado_por)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        ).run(uuid(), paso.id, opcion.codigo, opcion.etiqueta, opcion.texto || null, JSON.stringify(efectosAplicados), cartelito, req.user.sub);
 
         const siguiente = db
           .prepare(`SELECT * FROM paso_recorrido WHERE equipo_id = ? AND orden_index = ? AND estado = 'pendiente'`)
@@ -210,6 +212,90 @@ router.post("/crisis/:sala_id/iniciar-cronometro", requireStaff("admin"), (req, 
   );
   emitAdmin("crisis:cronometro_iniciado", { sala_id: sala.id, iniciado_en: now });
   res.json({ ok: true, iniciado_en: now });
+});
+
+// -----------------------------------------------------------------------
+// POST /api/admin/crisis/:sala_id/pausar-cronometro  (solo admin) — congela
+// la cuenta regresiva de 8 minutos en el valor que tenga en ese instante,
+// en las pantallas de los 5 equipos, hasta que se reanude.
+// -----------------------------------------------------------------------
+router.post("/crisis/:sala_id/pausar-cronometro", requireStaff("admin"), (req, res) => {
+  const sala = db.prepare("SELECT * FROM sala WHERE id = ? AND tipo = 'crisis'").get(req.params.sala_id);
+  if (!sala) return res.status(404).json({ error: "Sala de crisis no encontrada." });
+
+  const crisisEstado = db.prepare("SELECT * FROM crisis_estado WHERE sala_id = ?").get(sala.id);
+  if (!crisisEstado?.cronometro_iniciado_en) {
+    return res.status(409).json({ error: "El cronómetro todavía no fue iniciado." });
+  }
+  if (crisisEstado.cronometro_finalizado_en) {
+    return res.status(409).json({ error: "El cronómetro ya fue finalizado." });
+  }
+  if (crisisEstado.cronometro_pausado_en) {
+    return res.status(409).json({ error: "El cronómetro ya está en pausa." });
+  }
+
+  const now = new Date().toISOString();
+  db.prepare(`UPDATE crisis_estado SET cronometro_pausado_en = ? WHERE id = ?`).run(now, crisisEstado.id);
+
+  const equipos = db.prepare("SELECT id FROM equipo").all();
+  equipos.forEach((e) => emitEquipo(e.id, "crisis:cronometro_pausado", { sala_id: sala.id, pausado_en: now }));
+  emitAdmin("crisis:cronometro_pausado", { sala_id: sala.id, pausado_en: now });
+  res.json({ ok: true, pausado_en: now });
+});
+
+// -----------------------------------------------------------------------
+// POST /api/admin/crisis/:sala_id/reanudar-cronometro  (solo admin) — saca
+// de pausa el cronómetro, corriendo el instante de inicio hacia adelante
+// exactamente lo que duró la pausa (asi el tiempo restante no cambia).
+// -----------------------------------------------------------------------
+router.post("/crisis/:sala_id/reanudar-cronometro", requireStaff("admin"), (req, res) => {
+  const sala = db.prepare("SELECT * FROM sala WHERE id = ? AND tipo = 'crisis'").get(req.params.sala_id);
+  if (!sala) return res.status(404).json({ error: "Sala de crisis no encontrada." });
+
+  const crisisEstado = db.prepare("SELECT * FROM crisis_estado WHERE sala_id = ?").get(sala.id);
+  if (!crisisEstado?.cronometro_pausado_en) {
+    return res.status(409).json({ error: "El cronómetro no está en pausa." });
+  }
+
+  const pausadoMs = Date.now() - new Date(crisisEstado.cronometro_pausado_en).getTime();
+  const nuevoInicio = new Date(new Date(crisisEstado.cronometro_iniciado_en).getTime() + Math.max(0, pausadoMs)).toISOString();
+  db.prepare(`UPDATE crisis_estado SET cronometro_iniciado_en = ?, cronometro_pausado_en = NULL WHERE id = ?`)
+    .run(nuevoInicio, crisisEstado.id);
+
+  const equipos = db.prepare("SELECT id FROM equipo").all();
+  equipos.forEach((e) =>
+    emitEquipo(e.id, "crisis:cronometro_reanudado", { sala_id: sala.id, iniciado_en: nuevoInicio, duracion_segundos: crisisEstado.duracion_segundos })
+  );
+  emitAdmin("crisis:cronometro_reanudado", { sala_id: sala.id, iniciado_en: nuevoInicio });
+  res.json({ ok: true, iniciado_en: nuevoInicio });
+});
+
+// -----------------------------------------------------------------------
+// POST /api/admin/crisis/:sala_id/finalizar-cronometro  (solo admin) —
+// corta el cronómetro manualmente antes de tiempo (por ejemplo si el
+// equipo ya terminó de responder). Queda fijo en 00:00 para siempre; la
+// evaluacion del jurado sigue siendo un paso aparte.
+// -----------------------------------------------------------------------
+router.post("/crisis/:sala_id/finalizar-cronometro", requireStaff("admin"), (req, res) => {
+  const sala = db.prepare("SELECT * FROM sala WHERE id = ? AND tipo = 'crisis'").get(req.params.sala_id);
+  if (!sala) return res.status(404).json({ error: "Sala de crisis no encontrada." });
+
+  const crisisEstado = db.prepare("SELECT * FROM crisis_estado WHERE sala_id = ?").get(sala.id);
+  if (!crisisEstado?.cronometro_iniciado_en) {
+    return res.status(409).json({ error: "El cronómetro todavía no fue iniciado." });
+  }
+  if (crisisEstado.cronometro_finalizado_en) {
+    return res.status(409).json({ error: "El cronómetro ya estaba finalizado." });
+  }
+
+  const now = new Date().toISOString();
+  db.prepare(`UPDATE crisis_estado SET cronometro_finalizado_en = ?, cronometro_pausado_en = NULL WHERE id = ?`)
+    .run(now, crisisEstado.id);
+
+  const equipos = db.prepare("SELECT id FROM equipo").all();
+  equipos.forEach((e) => emitEquipo(e.id, "crisis:cronometro_finalizado", { sala_id: sala.id, finalizado_en: now }));
+  emitAdmin("crisis:cronometro_finalizado", { sala_id: sala.id, finalizado_en: now });
+  res.json({ ok: true, finalizado_en: now });
 });
 
 // POST /api/admin/crisis/evaluar  (solo jurado o admin) — body: { equipo_id, sala_id, claridad, manejo_incertidumbre, coherencia, control_presion, comentario }
