@@ -239,6 +239,10 @@ router.post("/crisis/evaluar", requireStaff("admin", "jurado"), (req, res) => {
   tx();
 
   const leaderboard = construirLeaderboard();
+  // El equipo evaluado necesita enterarse para que se cierre solo la
+  // pantalla completa no cerrable de la sala de crisis (ver crisis-overlay
+  // en equipo.js): sin este evento quedaba esperando el próximo refresco.
+  emitEquipo(equipo_id, "crisis:evaluada", { sala_id, puntos });
   emitAdmin("crisis:evaluada", { equipo_id, sala_id, puntos });
   emitPublico("leaderboard:actualizado", leaderboard);
   res.json({ ok: true, puntos, leaderboard });
