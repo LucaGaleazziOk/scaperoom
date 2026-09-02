@@ -76,6 +76,9 @@ function conectarSocket() {
     "paso:cerrado",
     "crisis:iniciada",
     "crisis:cronometro_iniciado",
+    "crisis:cronometro_pausado",
+    "crisis:cronometro_reanudado",
+    "crisis:cronometro_finalizado",
     "crisis:evaluada",
     "puntaje:ajustado",
     "equipo:rol_tomado",
@@ -243,12 +246,26 @@ function renderCrisisControl(overview) {
 
       // El cronometro de 8 minutos de la pantalla completa del equipo se
       // arranca aparte del disparo, cuando el admin decida que arranca el
-      // tiempo real (ver caso_critico leido en vivo).
+      // tiempo real (ver caso_critico leido en vivo). Una vez arrancado se
+      // puede pausar/reanudar (por ejemplo si hay un problema tecnico) o
+      // finalizar antes de tiempo (si el equipo ya terminó de responder).
       let cronometroHtml = "";
       if (puedeDisparar && s.disparada) {
-        cronometroHtml = s.cronometro_iniciado_en
-          ? `<span class="badge cerrado" id="cronometro-badge-${s.sala_id}">⏱️ ${formatCronometroRestante(s.cronometro_iniciado_en, s.duracion_segundos)}</span>`
-          : `<button class="secondary small" onclick="iniciarCronometroCrisis('${s.sala_id}','${s.nombre.replace(/'/g, "")}')">⏱️ Iniciar cronómetro (8 min)</button>`;
+        if (!s.cronometro_iniciado_en) {
+          cronometroHtml = `<button class="secondary small" onclick="iniciarCronometroCrisis('${s.sala_id}','${s.nombre.replace(/'/g, "")}')">⏱️ Iniciar cronómetro (8 min)</button>`;
+        } else if (s.cronometro_finalizado_en) {
+          cronometroHtml = `<span class="badge cerrado">⏹️ Cronómetro finalizado</span>`;
+        } else if (s.cronometro_pausado_en) {
+          cronometroHtml = `
+            <span class="badge pendiente" id="cronometro-badge-${s.sala_id}">⏸️ ${formatCronometroRestante(s)} (en pausa)</span>
+            <button class="secondary small" onclick="reanudarCronometroCrisis('${s.sala_id}','${s.nombre.replace(/'/g, "")}')">▶️ Reanudar</button>
+            <button class="secondary small" onclick="finalizarCronometroCrisis('${s.sala_id}','${s.nombre.replace(/'/g, "")}')">⏹️ Finalizar</button>`;
+        } else {
+          cronometroHtml = `
+            <span class="badge cerrado" id="cronometro-badge-${s.sala_id}">⏱️ ${formatCronometroRestante(s)}</span>
+            <button class="secondary small" onclick="pausarCronometroCrisis('${s.sala_id}','${s.nombre.replace(/'/g, "")}')">⏸️ Pausar</button>
+            <button class="secondary small" onclick="finalizarCronometroCrisis('${s.sala_id}','${s.nombre.replace(/'/g, "")}')">⏹️ Finalizar</button>`;
+        }
       }
 
       return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
@@ -260,9 +277,14 @@ function renderCrisisControl(overview) {
   iniciarTicksCronometrosAdmin(overview.salas_crisis);
 }
 
-function formatCronometroRestante(iniciadoEn, duracionSegundos) {
-  const iniciado = new Date(iniciadoEn).getTime();
-  const restanteMs = Math.max(0, iniciado + (duracionSegundos || 480) * 1000 - Date.now());
+// Calcula el texto del cronometro para una sala de crisis, respetando si
+// esta corriendo, en pausa (congelado en el valor que tenia al pausarse) o
+// ya finalizado (siempre 00:00).
+function formatCronometroRestante(s) {
+  if (s.cronometro_finalizado_en) return "00:00 (finalizado)";
+  const hastaMs = s.cronometro_pausado_en ? new Date(s.cronometro_pausado_en).getTime() : Date.now();
+  const iniciado = new Date(s.cronometro_iniciado_en).getTime();
+  const restanteMs = Math.max(0, iniciado + (s.duracion_segundos || 480) * 1000 - hastaMs);
   const totalSeg = Math.ceil(restanteMs / 1000);
   const mm = String(Math.floor(totalSeg / 60)).padStart(2, "0");
   const ss = String(totalSeg % 60).padStart(2, "0");
@@ -272,12 +294,14 @@ function formatCronometroRestante(iniciadoEn, duracionSegundos) {
 let cronometrosAdminInterval = null;
 function iniciarTicksCronometrosAdmin(salasCrisis) {
   clearInterval(cronometrosAdminInterval);
-  const activas = (salasCrisis || []).filter((s) => s.cronometro_iniciado_en);
+  // Solo tiquea mientras esta corriendo de verdad: en pausa o finalizado el
+  // valor queda fijo (ya se renderizo arriba con el texto correcto).
+  const activas = (salasCrisis || []).filter((s) => s.cronometro_iniciado_en && !s.cronometro_pausado_en && !s.cronometro_finalizado_en);
   if (!activas.length) return;
   cronometrosAdminInterval = setInterval(() => {
     activas.forEach((s) => {
       const el = $(`cronometro-badge-${s.sala_id}`);
-      if (el) el.textContent = `⏱️ ${formatCronometroRestante(s.cronometro_iniciado_en, s.duracion_segundos)}`;
+      if (el) el.textContent = `⏱️ ${formatCronometroRestante(s)}`;
     });
   }, 1000);
 }
@@ -303,6 +327,37 @@ async function iniciarCronometroCrisis(salaId, nombre) {
   try {
     await api(`/api/admin/crisis/${salaId}/iniciar-cronometro`, { method: "POST" });
     showMsg(`Cronómetro de "${nombre}" iniciado.`, "ok");
+    cargarTodo();
+  } catch (e) {
+    showMsg(e.message, "error");
+  }
+}
+
+async function pausarCronometroCrisis(salaId, nombre) {
+  try {
+    await api(`/api/admin/crisis/${salaId}/pausar-cronometro`, { method: "POST" });
+    showMsg(`Cronómetro de "${nombre}" pausado.`, "ok");
+    cargarTodo();
+  } catch (e) {
+    showMsg(e.message, "error");
+  }
+}
+
+async function reanudarCronometroCrisis(salaId, nombre) {
+  try {
+    await api(`/api/admin/crisis/${salaId}/reanudar-cronometro`, { method: "POST" });
+    showMsg(`Cronómetro de "${nombre}" reanudado.`, "ok");
+    cargarTodo();
+  } catch (e) {
+    showMsg(e.message, "error");
+  }
+}
+
+async function finalizarCronometroCrisis(salaId, nombre) {
+  if (!confirm(`¿Finalizar ahora el cronómetro de "${nombre}"? Va a quedar en 00:00 en la pantalla de los 5 equipos y no se puede deshacer.`)) return;
+  try {
+    await api(`/api/admin/crisis/${salaId}/finalizar-cronometro`, { method: "POST" });
+    showMsg(`Cronómetro de "${nombre}" finalizado.`, "ok");
     cargarTodo();
   } catch (e) {
     showMsg(e.message, "error");

@@ -81,6 +81,11 @@ function conectarSocket() {
   // forma remota, aparte del disparo: hay que refrescar el estado para que
   // la pantalla completa empiece a contar.
   socket.on("crisis:cronometro_iniciado", cargarEstado);
+  // El admin puede pausar/reanudar/finalizar el cronómetro de 8 minutos en
+  // cualquier momento desde el panel de administración.
+  socket.on("crisis:cronometro_pausado", cargarEstado);
+  socket.on("crisis:cronometro_reanudado", cargarEstado);
+  socket.on("crisis:cronometro_finalizado", cargarEstado);
   // Cuando el jurado evalúa esta sala de crisis para este equipo, hay que
   // refrescar el estado para que la pantalla completa no cerrable se oculte
   // sola (ver renderCrisisOverlay: se muestra mientras disparada && !evaluada).
@@ -320,11 +325,32 @@ function renderCrisisOverlay(crisisList) {
   crisisTimerInterval = null;
   const timerEl = $("crisis-overlay-timer");
   const esperaEl = $("crisis-overlay-espera");
+  timerEl.classList.remove("timer-urgente", "timer-pausado");
 
   if (!activa.cronometro_iniciado_en) {
     timerEl.textContent = "--:--";
-    timerEl.classList.remove("timer-urgente");
     esperaEl.textContent = "Esperando que el equipo organizador inicie el cronómetro de 8 minutos.";
+    return;
+  }
+
+  // El admin puede finalizarlo antes de tiempo (queda fijo en 00:00) o
+  // pausarlo (queda fijo en el valor que tenía al pausarse, sin tiquear).
+  if (activa.cronometro_finalizado_en) {
+    timerEl.textContent = "00:00";
+    esperaEl.textContent = "La organización finalizó el cronómetro.";
+    return;
+  }
+  if (activa.cronometro_pausado_en) {
+    const iniciado = new Date(activa.cronometro_iniciado_en).getTime();
+    const duracionMs = (activa.duracion_segundos || 480) * 1000;
+    const pausadoEn = new Date(activa.cronometro_pausado_en).getTime();
+    const restanteMs = Math.max(0, iniciado + duracionMs - pausadoEn);
+    const totalSeg = Math.ceil(restanteMs / 1000);
+    const mm = String(Math.floor(totalSeg / 60)).padStart(2, "0");
+    const ss = String(totalSeg % 60).padStart(2, "0");
+    timerEl.textContent = `${mm}:${ss}`;
+    timerEl.classList.add("timer-pausado");
+    esperaEl.textContent = "⏸️ La organización pausó el cronómetro.";
     return;
   }
 
