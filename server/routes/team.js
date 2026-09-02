@@ -77,6 +77,11 @@ router.get("/estado", (req, res) => {
       disparada: !!estado?.disparada,
       caso_critico: estado?.disparada ? sala.caso_critico : null,
       evaluada: !!evaluada,
+      // El cronometro de 8 minutos lo arranca el admin de forma remota,
+      // separado del "disparar": hasta entonces el equipo ve la consigna
+      // sin cuenta regresiva.
+      cronometro_iniciado_en: estado?.cronometro_iniciado_en || null,
+      duracion_segundos: estado?.duracion_segundos || 480,
     };
   });
 

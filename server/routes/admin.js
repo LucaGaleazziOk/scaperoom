@@ -83,6 +83,8 @@ router.get("/overview", requireStaff("admin", "facilitador", "jurado"), (req, re
       nombre: s.nombre,
       caso_critico: s.caso_critico,
       disparada: !!crisisEstados[i]?.disparada,
+      cronometro_iniciado_en: crisisEstados[i]?.cronometro_iniciado_en || null,
+      duracion_segundos: crisisEstados[i]?.duracion_segundos || 480,
     })),
     leaderboard: construirLeaderboard(),
   });
@@ -177,6 +179,37 @@ router.post("/crisis/disparar", requireStaff("admin"), (req, res) => {
   emitAdmin("crisis:iniciada", { sala_id: sala.id });
   emitPublico("crisis:iniciada", { sala_nombre: sala.nombre });
   res.json({ ok: true });
+});
+
+// -----------------------------------------------------------------------
+// POST /api/admin/crisis/:sala_id/iniciar-cronometro  (solo admin) — arranca
+// de forma remota la cuenta regresiva de 8 minutos que ven los equipos en
+// la pantalla completa de la crisis. Es un paso aparte de "disparar": la
+// sala puede estar disparada (los equipos ya ven la consigna) sin que el
+// cronometro haya arrancado todavia.
+// -----------------------------------------------------------------------
+router.post("/crisis/:sala_id/iniciar-cronometro", requireStaff("admin"), (req, res) => {
+  const sala = db.prepare("SELECT * FROM sala WHERE id = ? AND tipo = 'crisis'").get(req.params.sala_id);
+  if (!sala) return res.status(404).json({ error: "Sala de crisis no encontrada." });
+
+  const crisisEstado = db.prepare("SELECT * FROM crisis_estado WHERE sala_id = ?").get(sala.id);
+  if (!crisisEstado?.disparada) {
+    return res.status(409).json({ error: "Esta sala de crisis todavía no fue disparada." });
+  }
+
+  const now = new Date().toISOString();
+  db.prepare(`UPDATE crisis_estado SET cronometro_iniciado_en = ? WHERE id = ?`).run(now, crisisEstado.id);
+
+  const equipos = db.prepare("SELECT id FROM equipo").all();
+  equipos.forEach((e) =>
+    emitEquipo(e.id, "crisis:cronometro_iniciado", {
+      sala_id: sala.id,
+      iniciado_en: now,
+      duracion_segundos: crisisEstado.duracion_segundos,
+    })
+  );
+  emitAdmin("crisis:cronometro_iniciado", { sala_id: sala.id, iniciado_en: now });
+  res.json({ ok: true, iniciado_en: now });
 });
 
 // POST /api/admin/crisis/evaluar  (solo jurado o admin) — body: { equipo_id, sala_id, claridad, manejo_incertidumbre, coherencia, control_presion, comentario }
