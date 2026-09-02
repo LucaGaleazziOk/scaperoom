@@ -130,6 +130,8 @@ CREATE TABLE IF NOT EXISTS crisis_estado (
   sala_id TEXT NOT NULL REFERENCES sala(id),
   disparada INTEGER NOT NULL DEFAULT 0,
   disparada_en TEXT,
+  cronometro_iniciado_en TEXT,                     -- el admin lo arranca de forma remota, aparte de "disparar"
+  duracion_segundos INTEGER NOT NULL DEFAULT 480,  -- 8 minutos
   UNIQUE(jornada_id, sala_id)
 );
 
@@ -154,5 +156,7 @@ function ensureColumn(tabla, columna, definicion) {
 ensureColumn("jornada", "resultados_publicados", "INTEGER NOT NULL DEFAULT 0");
 ensureColumn("jornada", "resultados_publicados_en", "TEXT");
 ensureColumn("equipo", "resultado_final_pct", "REAL");
+ensureColumn("crisis_estado", "cronometro_iniciado_en", "TEXT");
+ensureColumn("crisis_estado", "duracion_segundos", "INTEGER NOT NULL DEFAULT 480");
 
 module.exports = db;
