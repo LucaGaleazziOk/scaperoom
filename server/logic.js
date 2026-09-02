@@ -42,6 +42,71 @@ function getAperturaVariante(sala, cartelitoEntrada) {
   return apertura[cartelitoEntrada] || null;
 }
 
+// -----------------------------------------------------------------------
+// Crisis "inteligentes": las salas de crisis se pueden disparar en
+// cualquier momento del recorrido de cada equipo, asi que el texto que
+// reciben tiene que poder engancharse con la ultima decision que ese
+// equipo haya tomado en ESE momento (o con la ausencia de una, si todavia
+// no cerraron ninguna sala tematica). No se calcula una sola vez: se arma
+// en cada lectura, asi siempre refleja la decision mas reciente disponible.
+// -----------------------------------------------------------------------
+
+// Devuelve la ultima decision registrada por un equipo (en cualquier sala
+// tematica, sin importar el orden de rotacion), con el nombre de la sala
+// donde se tomo. null si el equipo todavia no cerro ninguna sala.
+function getUltimaDecisionEquipo(equipoId) {
+  const row = db
+    .prepare(
+      `SELECT d.opcion_codigo, d.opcion_etiqueta, d.opcion_texto, d.registrado_en,
+              s.nombre as sala_nombre, s.slug as sala_slug, s.eje as sala_eje
+       FROM decision d
+       JOIN paso_recorrido pr ON pr.id = d.paso_id
+       JOIN sala s ON s.id = pr.sala_id
+       WHERE pr.equipo_id = ?
+       ORDER BY d.registrado_en DESC
+       LIMIT 1`
+    )
+    .get(equipoId);
+  return row || null;
+}
+
+// Un parrafo de conexion por cada sala de crisis, con una variante para
+// cuando hay una decision previa concreta y otra para cuando todavia no
+// cerraron ninguna sala tematica (la crisis los toma "en blanco").
+const CONECTORES_CRISIS = {
+  crisis_comunicacional: {
+    conDecision: (d) =>
+      `El tramo del audio que más circula es, específicamente, del momento en que el gabinete discutía la decisión que acaban de tomar en la sala de ${d.sala_nombre}: «${d.opcion_etiqueta}»${d.opcion_texto ? ` (${d.opcion_texto})` : ""}. Ese es el fragmento que ahora se repite, recortado y descontextualizado, en redes.`,
+    sinDecision: () =>
+      `Todavía no cerraron ninguna sala temática, así que el audio filtrado no puede anclarse a una decisión concreta de gestión: es una discusión interna general sobre el rumbo político, lo que deja más margen para la especulación periodística sobre qué se dijo realmente.`,
+  },
+  crisis_seguridad: {
+    conDecision: (d) =>
+      `Parte de la lectura pública del episodio lo conecta con la decisión que el gabinete tomó en la sala de ${d.sala_nombre}: «${d.opcion_etiqueta}»${d.opcion_texto ? ` (${d.opcion_texto})` : ""}. El jurado va a preguntar explícitamente si esa decisión influyó en lo ocurrido.`,
+    sinDecision: () =>
+      `El episodio ocurre sin que el gobierno haya tomado todavía ninguna decisión de gestión registrada, así que el jurado va a evaluar la respuesta "en el vacío", sin poder atribuirla —a favor o en contra— a ninguna política previa.`,
+  },
+  crisis_fiscal: {
+    conDecision: (d) =>
+      `El anuncio llega apenas después de la decisión tomada en la sala de ${d.sala_nombre}: «${d.opcion_etiqueta}»${d.opcion_texto ? ` (${d.opcion_texto})` : ""}, algo que condiciona directamente cuánto margen de maniobra fiscal les queda para absorber el recorte.`,
+    sinDecision: () =>
+      `El anuncio los toma sin decisiones de gestión previas registradas, así que el margen de maniobra fiscal disponible es, por ahora, el de partida — sin nada propio que lo haya mejorado o empeorado.`,
+  },
+};
+
+// Arma el caso_critico final que ve un equipo puntual: el texto base fijo
+// de la sala + el parrafo de conexion dinamico segun su ultima decision.
+// Si la sala de crisis no tiene conector definido (por si se agregan mas
+// salas de crisis a futuro), devuelve el texto base sin modificar.
+function construirCasoCriticoParaEquipo(sala, equipoId) {
+  const conector = CONECTORES_CRISIS[sala.slug];
+  if (!conector) return sala.caso_critico;
+
+  const ultimaDecision = getUltimaDecisionEquipo(equipoId);
+  const parrafo = ultimaDecision ? conector.conDecision(ultimaDecision) : conector.sinDecision();
+  return `${sala.caso_critico}\n\n${parrafo}`;
+}
+
 // Aplica un objeto de deltas {eje_slug: delta} al equipo, clampeando cada
 // eje entre 0 y 100. Devuelve los efectos realmente aplicados (post-clamp).
 function aplicarEfectos(equipoId, efectos) {
@@ -148,6 +213,8 @@ module.exports = {
   getPasosDeEquipo,
   getProblemaParaEquipo,
   getAperturaVariante,
+  getUltimaDecisionEquipo,
+  construirCasoCriticoParaEquipo,
   aplicarEfectos,
   sumaAjustesManualesPorEje,
   salasCompletadas,

@@ -94,6 +94,7 @@ CREATE TABLE IF NOT EXISTS decision (
   paso_id TEXT NOT NULL UNIQUE REFERENCES paso_recorrido(id),
   opcion_codigo TEXT NOT NULL,      -- A | B | C
   opcion_etiqueta TEXT,
+  opcion_texto TEXT,                 -- texto completo de la opcion elegida (para las crisis "inteligentes")
   efectos_json TEXT,                -- JSON: {eje_slug: delta, ...} realmente aplicado
   cartelito_resultante TEXT,        -- A | B | C para la siguiente sala
   registrado_por TEXT REFERENCES usuario(id),
@@ -132,6 +133,8 @@ CREATE TABLE IF NOT EXISTS crisis_estado (
   disparada_en TEXT,
   cronometro_iniciado_en TEXT,                     -- el admin lo arranca de forma remota, aparte de "disparar"
   duracion_segundos INTEGER NOT NULL DEFAULT 480,  -- 8 minutos
+  cronometro_pausado_en TEXT,        -- si esta pausado, el momento en que se pauso (null = corriendo o no arrancado)
+  cronometro_finalizado_en TEXT,     -- si el admin lo corta manualmente antes de tiempo
   UNIQUE(jornada_id, sala_id)
 );
 
@@ -158,5 +161,8 @@ ensureColumn("jornada", "resultados_publicados_en", "TEXT");
 ensureColumn("equipo", "resultado_final_pct", "REAL");
 ensureColumn("crisis_estado", "cronometro_iniciado_en", "TEXT");
 ensureColumn("crisis_estado", "duracion_segundos", "INTEGER NOT NULL DEFAULT 480");
+ensureColumn("crisis_estado", "cronometro_pausado_en", "TEXT");
+ensureColumn("crisis_estado", "cronometro_finalizado_en", "TEXT");
+ensureColumn("decision", "opcion_texto", "TEXT");
 
 module.exports = db;
