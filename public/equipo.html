@@ -88,6 +88,29 @@
   <div class="footer-note">Sala de Escape Política — Panel de Equipo · datos en vivo vía WebSocket</div>
 </div>
 
+<!-- Cronómetro fijo de la sala temática en curso: queda anclado a la
+     esquina de la pantalla aunque el equipo scrollee el resto del panel. -->
+<div id="timer-fijo" class="timer-fijo hidden">
+  <span id="timer-fijo-label">Sala</span>
+  <span id="timer-fijo-valor">05:00</span>
+</div>
+
+<!-- Pantalla completa de sala de crisis: sin botón para cerrarla. Se
+     muestra apenas se dispara la crisis (con la consigna) y arranca su
+     propio cronómetro de 8 minutos recién cuando el admin lo inicia de
+     forma remota desde el panel de administración. -->
+<div id="crisis-overlay" class="crisis-overlay hidden">
+  <div class="crisis-overlay-inner">
+    <div class="crisis-overlay-badge">🚨 Sala de Crisis</div>
+    <h2 id="crisis-overlay-nombre"></h2>
+    <p id="crisis-overlay-texto"></p>
+    <div class="crisis-overlay-timer-wrap">
+      <div class="crisis-overlay-timer" id="crisis-overlay-timer">--:--</div>
+      <p class="small-muted" id="crisis-overlay-espera"></p>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 <script src="equipo.js"></script>
 </body>

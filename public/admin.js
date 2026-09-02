@@ -75,6 +75,7 @@ function conectarSocket() {
     "paso:iniciado",
     "paso:cerrado",
     "crisis:iniciada",
+    "crisis:cronometro_iniciado",
     "crisis:evaluada",
     "puntaje:ajustado",
     "equipo:rol_tomado",
@@ -239,11 +240,46 @@ function renderCrisisControl(overview) {
       const boton = puedeDisparar
         ? `<button class="danger small" ${s.disparada ? "disabled" : ""} onclick="dispararCrisis('${s.sala_id}','${s.nombre.replace(/'/g, "")}')">🚨 Disparar</button>`
         : "";
-      return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-        <strong style="min-width:260px">${s.nombre}</strong> ${badge} ${boton}
+
+      // El cronometro de 8 minutos de la pantalla completa del equipo se
+      // arranca aparte del disparo, cuando el admin decida que arranca el
+      // tiempo real (ver caso_critico leido en vivo).
+      let cronometroHtml = "";
+      if (puedeDisparar && s.disparada) {
+        cronometroHtml = s.cronometro_iniciado_en
+          ? `<span class="badge cerrado" id="cronometro-badge-${s.sala_id}">⏱️ ${formatCronometroRestante(s.cronometro_iniciado_en, s.duracion_segundos)}</span>`
+          : `<button class="secondary small" onclick="iniciarCronometroCrisis('${s.sala_id}','${s.nombre.replace(/'/g, "")}')">⏱️ Iniciar cronómetro (8 min)</button>`;
+      }
+
+      return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+        <strong style="min-width:260px">${s.nombre}</strong> ${badge} ${boton} ${cronometroHtml}
       </div>`;
     })
     .join("");
+
+  iniciarTicksCronometrosAdmin(overview.salas_crisis);
+}
+
+function formatCronometroRestante(iniciadoEn, duracionSegundos) {
+  const iniciado = new Date(iniciadoEn).getTime();
+  const restanteMs = Math.max(0, iniciado + (duracionSegundos || 480) * 1000 - Date.now());
+  const totalSeg = Math.ceil(restanteMs / 1000);
+  const mm = String(Math.floor(totalSeg / 60)).padStart(2, "0");
+  const ss = String(totalSeg % 60).padStart(2, "0");
+  return totalSeg > 0 ? `${mm}:${ss} restantes` : "Tiempo agotado";
+}
+
+let cronometrosAdminInterval = null;
+function iniciarTicksCronometrosAdmin(salasCrisis) {
+  clearInterval(cronometrosAdminInterval);
+  const activas = (salasCrisis || []).filter((s) => s.cronometro_iniciado_en);
+  if (!activas.length) return;
+  cronometrosAdminInterval = setInterval(() => {
+    activas.forEach((s) => {
+      const el = $(`cronometro-badge-${s.sala_id}`);
+      if (el) el.textContent = `⏱️ ${formatCronometroRestante(s.cronometro_iniciado_en, s.duracion_segundos)}`;
+    });
+  }, 1000);
 }
 
 async function dispararCrisis(salaId, nombre) {
@@ -251,6 +287,22 @@ async function dispararCrisis(salaId, nombre) {
   try {
     await api("/api/admin/crisis/disparar", { method: "POST", body: JSON.stringify({ sala_id: salaId }) });
     showMsg(`"${nombre}" disparada para las 5 provincias.`, "ok");
+    cargarTodo();
+  } catch (e) {
+    showMsg(e.message, "error");
+  }
+}
+
+async function iniciarCronometroCrisis(salaId, nombre) {
+  if (
+    !confirm(
+      `¿Arrancar ahora el cronómetro de 8 minutos de "${nombre}"? Va a aparecer en la pantalla completa de cada equipo, que no pueden cerrar.`
+    )
+  )
+    return;
+  try {
+    await api(`/api/admin/crisis/${salaId}/iniciar-cronometro`, { method: "POST" });
+    showMsg(`Cronómetro de "${nombre}" iniciado.`, "ok");
     cargarTodo();
   } catch (e) {
     showMsg(e.message, "error");
