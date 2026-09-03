@@ -54,6 +54,27 @@
     </div>
 
     <div class="card">
+      <h2>📡 Transmisión en vivo — Sala de Crisis</h2>
+      <p class="small-muted">
+        Cuando le toque hablar a un/a representante en la sala de crisis, pegá acá el link de la transmisión
+        (YouTube Live, Whereby, Daily.co o cualquier otro que se pueda insertar) y publicalo: se ve en vivo en
+        el panel de los 5 equipos y en la pantalla pública. Como es una sola cámara y hablan de a uno, alcanza
+        con republicar el mismo link (o cortar y volver a publicar) cada vez que cambie el orador.
+      </p>
+      <div class="grid grid-2">
+        <div>
+          <label>Link de la transmisión</label>
+          <input id="in-transmision-url" placeholder="https://..." autocomplete="off" />
+        </div>
+        <div style="display:flex;align-items:end;gap:8px;flex-wrap:wrap">
+          <button id="btn-transmision-publicar">🔴 Publicar transmisión</button>
+          <button class="secondary" id="btn-transmision-cortar">⏹️ Cortar</button>
+        </div>
+      </div>
+      <p class="small-muted" id="transmision-estado-msg" style="margin-top:10px"></p>
+    </div>
+
+    <div class="card">
       <h2>Estado de los equipos</h2>
       <div id="equipos-overview"></div>
     </div>

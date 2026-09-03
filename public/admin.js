@@ -85,6 +85,7 @@ function conectarSocket() {
     "escrutinio:guardado",
     "escrutinio:publicado",
     "escrutinio:despublicado",
+    "transmision:actualizada",
   ].forEach((ev) => {
     socket.on(ev, () => cargarTodo());
   });
@@ -117,6 +118,7 @@ async function cargarTodo() {
     const overview = await api("/api/admin/overview");
     lastOverview = overview;
     renderCrisisControl(overview);
+    renderTransmisionControl(overview);
     renderOverview(overview);
     renderCrisisEval(overview);
     renderLeaderboard(overview.leaderboard);
@@ -363,6 +365,47 @@ async function finalizarCronometroCrisis(salaId, nombre) {
     showMsg(e.message, "error");
   }
 }
+
+// ---------------- TRANSMISIÓN EN VIVO DE LA SALA DE CRISIS ----------------
+// Una única señal (una cámara, un orador a la vez) que se publica/corta a
+// mano desde acá: no hay detección automática de "quién está hablando".
+function renderTransmisionControl(overview) {
+  const t = overview.transmision || { activa: false, url: null };
+  const input = $("in-transmision-url");
+  // Solo se precarga el input si está vacío, para no pisar lo que el admin
+  // esté escribiendo en ese momento (por ejemplo, el próximo link a pegar).
+  if (input && !input.value && t.url) input.value = t.url;
+
+  $("transmision-estado-msg").innerHTML = t.activa
+    ? `<span class="badge cerrado">🔴 EN VIVO</span> se está viendo en los 5 equipos y en la pantalla pública.`
+    : t.url
+    ? `<span class="badge pendiente">Cortada</span> el último link sigue guardado, listo para republicar.`
+    : `<span class="badge pendiente">Sin transmisión</span> todavía no se publicó ningún link.`;
+}
+
+async function publicarTransmision() {
+  const url = $("in-transmision-url").value.trim();
+  if (!url) return showMsg("Pegá primero el link de la transmisión.", "error");
+  try {
+    await api("/api/admin/transmision/publicar", { method: "POST", body: JSON.stringify({ url }) });
+    showMsg("Transmisión publicada para los 5 equipos y la pantalla pública.", "ok");
+    cargarTodo();
+  } catch (e) {
+    showMsg(e.message, "error");
+  }
+}
+$("btn-transmision-publicar").addEventListener("click", publicarTransmision);
+
+async function cortarTransmision() {
+  try {
+    await api("/api/admin/transmision/cortar", { method: "POST" });
+    showMsg("Transmisión cortada.", "ok");
+    cargarTodo();
+  } catch (e) {
+    showMsg(e.message, "error");
+  }
+}
+$("btn-transmision-cortar").addEventListener("click", cortarTransmision);
 
 function renderOverview(overview) {
   const cont = $("equipos-overview");
