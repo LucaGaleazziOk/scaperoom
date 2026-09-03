@@ -183,6 +183,50 @@ function construirLeaderboard() {
 // no este todoCerrado, el panel publico sigue mostrando el tablero en vivo;
 // una vez que lo esta, deja de mostrarlo y espera a que el admin publique
 // el resultado final (ver server/routes/admin.js, /escrutinio/publicar).
+// Convierte un link "para humanos" (por ejemplo el que se copia al mirar un
+// video de YouTube, o el de un live de YouTube) en la URL embebible que
+// hace falta para insertarla en un <iframe>. Los links de Whereby, Daily.co
+// u otros servicios pensados para embeber ya vienen listos y se devuelven
+// tal cual — solo YouTube necesita esta conversión.
+function normalizarUrlTransmision(url) {
+  if (!url) return url;
+  const limpio = url.trim();
+  try {
+    const u = new URL(limpio);
+    const host = u.hostname.replace(/^www\./, "").replace(/^m\./, "");
+    if (host === "youtu.be") {
+      const id = u.pathname.slice(1);
+      if (id) return `https://www.youtube.com/embed/${id}?autoplay=1&mute=1`;
+    }
+    if (host === "youtube.com") {
+      if (u.pathname === "/watch") {
+        const id = u.searchParams.get("v");
+        if (id) return `https://www.youtube.com/embed/${id}?autoplay=1&mute=1`;
+      }
+      if (u.pathname.startsWith("/live/")) {
+        const id = u.pathname.split("/")[2];
+        if (id) return `https://www.youtube.com/embed/${id}?autoplay=1&mute=1`;
+      }
+      // Ya viene en formato /embed/... u otro: se usa tal cual.
+    }
+    return limpio;
+  } catch {
+    // No es una URL valida: se devuelve tal cual para que la valide el que la pega.
+    return limpio;
+  }
+}
+
+// Estado actual de la transmision en vivo de la sala de crisis, guardado a
+// nivel jornada (no depende de ningun equipo/sala en particular: es una
+// unica señal que ve todo el mundo a la vez).
+function getEstadoTransmision() {
+  const jornada = db.prepare("SELECT * FROM jornada ORDER BY creado_en DESC LIMIT 1").get();
+  return {
+    activa: !!jornada?.transmision_activa,
+    url: jornada?.transmision_url || null,
+  };
+}
+
 function construirEstadoEscrutinio() {
   const jornada = db.prepare("SELECT * FROM jornada ORDER BY creado_en DESC LIMIT 1").get();
   const totalPasos = db.prepare("SELECT COUNT(*) as c FROM paso_recorrido").get().c;
@@ -221,4 +265,6 @@ module.exports = {
   calcularPuntosCrisis,
   construirLeaderboard,
   construirEstadoEscrutinio,
+  normalizarUrlTransmision,
+  getEstadoTransmision,
 };

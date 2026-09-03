@@ -164,5 +164,7 @@ ensureColumn("crisis_estado", "duracion_segundos", "INTEGER NOT NULL DEFAULT 480
 ensureColumn("crisis_estado", "cronometro_pausado_en", "TEXT");
 ensureColumn("crisis_estado", "cronometro_finalizado_en", "TEXT");
 ensureColumn("decision", "opcion_texto", "TEXT");
+ensureColumn("jornada", "transmision_url", "TEXT");
+ensureColumn("jornada", "transmision_activa", "INTEGER NOT NULL DEFAULT 0");
 
 module.exports = db;
