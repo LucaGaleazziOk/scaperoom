@@ -12,6 +12,7 @@ const {
   construirCasoCriticoParaEquipo,
   aplicarEfectos,
   construirLeaderboard,
+  getEstadoTransmision,
 } = require("../logic");
 
 const router = express.Router();
@@ -104,6 +105,9 @@ router.get("/estado", (req, res) => {
     mi_rol: rol ? { slug: rol.slug, nombre: rol.nombre, objetivo_secreto: rol.objetivo_secreto } : null,
     pasos: pasosEnriquecidos,
     crisis,
+    // Transmisión en vivo de quien esté hablando en la sala de crisis en
+    // este momento (una sola señal, la misma para los 5 equipos).
+    transmision: getEstadoTransmision(),
   });
 });
 

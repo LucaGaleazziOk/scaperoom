@@ -1,6 +1,6 @@
 const express = require("express");
 const db = require("../db");
-const { construirLeaderboard, construirEstadoEscrutinio } = require("../logic");
+const { construirLeaderboard, construirEstadoEscrutinio, getEstadoTransmision } = require("../logic");
 const { EJES } = require("../ejes");
 
 const router = express.Router();
@@ -44,6 +44,7 @@ router.get("/leaderboard", (req, res) => {
     crisis,
     progreso_global: { completados: pasosCerrados, total: totalPasos },
     escrutinio,
+    transmision: getEstadoTransmision(),
   });
 });
 

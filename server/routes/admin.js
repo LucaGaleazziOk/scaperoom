@@ -11,6 +11,8 @@ const {
   getProblemaParaEquipo,
   aplicarEfectos,
   calcularPuntosCrisis,
+  normalizarUrlTransmision,
+  getEstadoTransmision,
 } = require("../logic");
 const { EJES } = require("../ejes");
 const { resetAndReseed } = require("../seed");
@@ -89,6 +91,7 @@ router.get("/overview", requireStaff("admin", "facilitador", "jurado"), (req, re
       cronometro_finalizado_en: crisisEstados[i]?.cronometro_finalizado_en || null,
     })),
     leaderboard: construirLeaderboard(),
+    transmision: getEstadoTransmision(),
   });
 });
 
@@ -296,6 +299,48 @@ router.post("/crisis/:sala_id/finalizar-cronometro", requireStaff("admin"), (req
   equipos.forEach((e) => emitEquipo(e.id, "crisis:cronometro_finalizado", { sala_id: sala.id, finalizado_en: now }));
   emitAdmin("crisis:cronometro_finalizado", { sala_id: sala.id, finalizado_en: now });
   res.json({ ok: true, finalizado_en: now });
+});
+
+// -----------------------------------------------------------------------
+// POST /api/admin/transmision/publicar  (solo admin) — pone en vivo, para
+// los 5 equipos y la pantalla pública, el video/audio de quien esté
+// hablando en ese momento en la sala de crisis. No depende de una sala en
+// particular: es una única señal (una sola cámara, un solo representante
+// a la vez) que se actualiza con este mismo link cada vez que le toca
+// hablar a otro equipo, o se corta con /transmision/cortar cuando termine.
+// -----------------------------------------------------------------------
+router.post("/transmision/publicar", requireStaff("admin"), (req, res) => {
+  const { url } = req.body || {};
+  if (!url || !url.trim()) return res.status(400).json({ error: "Falta el link de la transmisión." });
+
+  const jornada = db.prepare("SELECT * FROM jornada ORDER BY creado_en DESC LIMIT 1").get();
+  if (!jornada) return res.status(404).json({ error: "No hay jornada activa." });
+
+  const normalizada = normalizarUrlTransmision(url);
+  db.prepare("UPDATE jornada SET transmision_url = ?, transmision_activa = 1 WHERE id = ?").run(normalizada, jornada.id);
+
+  const payload = { activa: true, url: normalizada };
+  const equipos = db.prepare("SELECT id FROM equipo").all();
+  equipos.forEach((e) => emitEquipo(e.id, "transmision:actualizada", payload));
+  emitAdmin("transmision:actualizada", payload);
+  emitPublico("transmision:actualizada", payload);
+  res.json({ ok: true, ...payload });
+});
+
+// POST /api/admin/transmision/cortar  (solo admin) — oculta la transmisión
+// en las 5 pantallas de equipo y en la pública. El link queda guardado
+// para poder republicarlo con un click cuando le toque hablar al próximo.
+router.post("/transmision/cortar", requireStaff("admin"), (req, res) => {
+  const jornada = db.prepare("SELECT * FROM jornada ORDER BY creado_en DESC LIMIT 1").get();
+  if (!jornada) return res.status(404).json({ error: "No hay jornada activa." });
+  db.prepare("UPDATE jornada SET transmision_activa = 0 WHERE id = ?").run(jornada.id);
+
+  const payload = { activa: false, url: jornada.transmision_url || null };
+  const equipos = db.prepare("SELECT id FROM equipo").all();
+  equipos.forEach((e) => emitEquipo(e.id, "transmision:actualizada", payload));
+  emitAdmin("transmision:actualizada", payload);
+  emitPublico("transmision:actualizada", payload);
+  res.json({ ok: true, ...payload });
 });
 
 // POST /api/admin/crisis/evaluar  (solo jurado o admin) — body: { equipo_id, sala_id, claridad, manejo_incertidumbre, coherencia, control_presion, comentario }
