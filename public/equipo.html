@@ -71,6 +71,24 @@
       <div id="crisis-texto"></div>
     </div>
 
+    <!-- Transmisión en vivo de quien esté hablando en la sala de crisis en
+         este momento. La organización la publica/corta a mano; solo se
+         muestra mientras está activa. -->
+    <div class="card" id="transmision-card" style="display:none">
+      <h2>🔴 Transmisión en vivo — Sala de Crisis</h2>
+      <p class="small-muted">Así se ve y se escucha, en vivo, quien le esté hablando al jurado ahora mismo.</p>
+      <div class="transmision-embed-wrap">
+        <iframe
+          id="transmision-iframe"
+          class="transmision-iframe"
+          src=""
+          title="Transmisión en vivo — Sala de Crisis"
+          allow="autoplay; encrypted-media; camera; microphone; fullscreen; display-capture"
+          allowfullscreen
+        ></iframe>
+      </div>
+    </div>
+
     <div class="card" id="paso-activo-card">
       <h2>Sala activa</h2>
       <div id="paso-activo-content">Esperando al facilitador…</div>

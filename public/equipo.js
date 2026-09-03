@@ -90,6 +90,9 @@ function conectarSocket() {
   // refrescar el estado para que la pantalla completa no cerrable se oculte
   // sola (ver renderCrisisOverlay: se muestra mientras disparada && !evaluada).
   socket.on("crisis:evaluada", cargarEstado);
+  // La organización publica/corta la transmisión en vivo de quien esté
+  // hablando en la sala de crisis en ese momento.
+  socket.on("transmision:actualizada", cargarEstado);
   // El equipo también recibe las actualizaciones del panel público para
   // mantener su propia miniatura del contador en vivo.
   socket.on("leaderboard:actualizado", cargarMiniTablero);
@@ -227,6 +230,25 @@ function render(data) {
 
   manejarTimerSala(pasos);
   renderCrisisOverlay(data.crisis);
+  renderTransmision(data.transmision);
+}
+
+// ---------------- TRANSMISIÓN EN VIVO DE LA SALA DE CRISIS ----------------
+// Se muestra únicamente mientras la organización la tiene publicada. El
+// iframe solo se toca cuando el link cambia de verdad, para no reiniciar
+// la reproducción en cada refresh de estado.
+function renderTransmision(transmision) {
+  const card = $("transmision-card");
+  const iframe = $("transmision-iframe");
+  if (!card || !iframe) return;
+
+  if (transmision && transmision.activa && transmision.url) {
+    if (iframe.getAttribute("src") !== transmision.url) iframe.setAttribute("src", transmision.url);
+    card.style.display = "block";
+  } else {
+    if (iframe.getAttribute("src")) iframe.setAttribute("src", "");
+    card.style.display = "none";
+  }
 }
 
 // ---------------- CRONÓMETRO FIJO DE LA SALA TEMÁTICA (5 minutos) ----------------
