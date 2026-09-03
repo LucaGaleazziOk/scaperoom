@@ -32,8 +32,24 @@ function barraEje(slug, valor) {
     </div>`;
 }
 
+// ---------------- TRANSMISIÓN EN VIVO DE LA SALA DE CRISIS ----------------
+function renderTransmisionPublica(transmision) {
+  const wrap = document.getElementById("transmision-public-wrap");
+  const iframe = document.getElementById("transmision-public-iframe");
+  if (!wrap || !iframe) return;
+
+  if (transmision && transmision.activa && transmision.url) {
+    if (iframe.getAttribute("src") !== transmision.url) iframe.setAttribute("src", transmision.url);
+    wrap.classList.remove("hidden");
+  } else {
+    if (iframe.getAttribute("src")) iframe.setAttribute("src", "");
+    wrap.classList.add("hidden");
+  }
+}
+
 function render(data) {
   const escrutinio = data.escrutinio || { todo_cerrado: false, publicado: false };
+  renderTransmisionPublica(data.transmision);
 
   if (escrutinio.publicado) {
     renderResultadoFinal(escrutinio.resultados || []);
@@ -160,6 +176,7 @@ socket.on("leaderboard:actualizado", cargar);
 socket.on("crisis:iniciada", cargar);
 socket.on("escrutinio:publicado", cargar);
 socket.on("escrutinio:despublicado", cargar);
+socket.on("transmision:actualizada", cargar);
 socket.on("connect", cargar);
 socket.on("app:reset", () => setTimeout(() => location.reload(), 1000));
 

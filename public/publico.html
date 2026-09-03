@@ -85,6 +85,21 @@
   .resultado-pct { font-size: 34px; font-weight: 900; color: var(--blue-900); margin: 4px 0 10px; font-variant-numeric: tabular-nums; }
   .provincia-card.resultado-final.revelado { animation: popResultado .4s ease; }
   @keyframes popResultado { 0% { transform: scale(0.97); } 60% { transform: scale(1.02); } 100% { transform: scale(1); } }
+
+  /* Transmisión en vivo de la sala de crisis: se inserta arriba del
+     tablero mientras la organización la tenga publicada. */
+  .transmision-public-wrap { max-width: 900px; margin: 0 auto 28px; }
+  .transmision-public-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--gold-light);
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
 </style>
 </head>
 <body>
@@ -94,6 +109,19 @@
     <div class="subtitle-wrap"><p class="subtitle" id="crisis-line">Cargando…</p></div>
   </div>
   <div class="container">
+    <div class="transmision-public-wrap hidden" id="transmision-public-wrap">
+      <div class="transmision-public-badge">🔴 En vivo — Sala de Crisis</div>
+      <div class="transmision-embed-wrap">
+        <iframe
+          id="transmision-public-iframe"
+          class="transmision-iframe"
+          src=""
+          title="Transmisión en vivo — Sala de Crisis"
+          allow="autoplay; encrypted-media; camera; microphone; fullscreen; display-capture"
+          allowfullscreen
+        ></iframe>
+      </div>
+    </div>
     <div class="grid-provincias" id="grid-provincias"></div>
     <p class="progreso" id="progreso-linea"></p>
   </div>

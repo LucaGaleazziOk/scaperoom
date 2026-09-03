@@ -364,6 +364,29 @@ body.crisis-lock { overflow: hidden; }
 ::-webkit-scrollbar-thumb { background: rgba(240, 179, 35, 0.4); border-radius: 8px; }
 
 /* ---------------------------------------------------------------------
+   Transmisión en vivo de la sala de crisis: contenedor responsive 16:9
+   reutilizado en el panel de equipo y en la pantalla pública.
+   --------------------------------------------------------------------- */
+.transmision-embed-wrap {
+  position: relative;
+  width: 100%;
+  padding-top: 56.25%; /* 16:9 */
+  height: 0;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #000;
+  box-shadow: 0 10px 26px rgba(4, 12, 30, 0.4);
+}
+.transmision-iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* ---------------------------------------------------------------------
    Pantalla de inicio: 3 accesos grandes centrados (equipos / admin / general)
    --------------------------------------------------------------------- */
 .home-wrap {
