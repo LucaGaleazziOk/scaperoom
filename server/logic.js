@@ -1,6 +1,27 @@
 const db = require("./db");
 const { EJE_SLUGS, EJE_PRINCIPAL, clamp } = require("./ejes");
 
+// Las 3 crisis presenciales (en papel). No tienen fila en la tabla "sala":
+// se identifican por este slug fijo. "rol" es el rol al que se saca de su
+// sala temática para entregarle el sobre (ver documento de sobres).
+const CRISIS_TIPOS = [
+  { slug: "comunicacion", nombre: "Crisis de Comunicación", rol: "Gobernador/a" },
+  { slug: "orden_publico", nombre: "Crisis de Orden Público", rol: "Jefe/a de Gabinete" },
+  { slug: "fiscal", nombre: "Crisis Fiscal", rol: "Ministro/a de Economía" },
+];
+
+// Orden de prioridad (de más a menos importante) que usa el % sugerido:
+// pesos tipo "suma de rangos" (6,5,4,3,2,1 sobre 21) — el primero pesa 6
+// veces más que el último, con una escala pareja entre medio.
+const PESOS_SUGERIDO = [
+  ["intencion_voto", 6],
+  ["imagen_positiva", 5],
+  ["desempeno", 4],
+  ["gobernabilidad", 3],
+  ["salud_fiscal", 2],
+  ["orden_publico", 1],
+];
+
 // El cartelito de salida ES la opcion elegida (A/B/C): cada sala tiene 3
 // opciones de efecto oculto y la que se elige queda registrada como
 // consecuencia/variante de apertura para la proxima sala del recorrido.
@@ -42,71 +63,6 @@ function getAperturaVariante(sala, cartelitoEntrada) {
   return apertura[cartelitoEntrada] || null;
 }
 
-// -----------------------------------------------------------------------
-// Crisis "inteligentes": las salas de crisis se pueden disparar en
-// cualquier momento del recorrido de cada equipo, asi que el texto que
-// reciben tiene que poder engancharse con la ultima decision que ese
-// equipo haya tomado en ESE momento (o con la ausencia de una, si todavia
-// no cerraron ninguna sala tematica). No se calcula una sola vez: se arma
-// en cada lectura, asi siempre refleja la decision mas reciente disponible.
-// -----------------------------------------------------------------------
-
-// Devuelve la ultima decision registrada por un equipo (en cualquier sala
-// tematica, sin importar el orden de rotacion), con el nombre de la sala
-// donde se tomo. null si el equipo todavia no cerro ninguna sala.
-function getUltimaDecisionEquipo(equipoId) {
-  const row = db
-    .prepare(
-      `SELECT d.opcion_codigo, d.opcion_etiqueta, d.opcion_texto, d.registrado_en,
-              s.nombre as sala_nombre, s.slug as sala_slug, s.eje as sala_eje
-       FROM decision d
-       JOIN paso_recorrido pr ON pr.id = d.paso_id
-       JOIN sala s ON s.id = pr.sala_id
-       WHERE pr.equipo_id = ?
-       ORDER BY d.registrado_en DESC
-       LIMIT 1`
-    )
-    .get(equipoId);
-  return row || null;
-}
-
-// Un parrafo de conexion por cada sala de crisis, con una variante para
-// cuando hay una decision previa concreta y otra para cuando todavia no
-// cerraron ninguna sala tematica (la crisis los toma "en blanco").
-const CONECTORES_CRISIS = {
-  crisis_comunicacional: {
-    conDecision: (d) =>
-      `El tramo del audio que más circula es, específicamente, del momento en que el gabinete discutía la decisión que acaban de tomar en la sala de ${d.sala_nombre}: «${d.opcion_etiqueta}»${d.opcion_texto ? ` (${d.opcion_texto})` : ""}. Ese es el fragmento que ahora se repite, recortado y descontextualizado, en redes.`,
-    sinDecision: () =>
-      `Todavía no cerraron ninguna sala temática, así que el audio filtrado no puede anclarse a una decisión concreta de gestión: es una discusión interna general sobre el rumbo político, lo que deja más margen para la especulación periodística sobre qué se dijo realmente.`,
-  },
-  crisis_seguridad: {
-    conDecision: (d) =>
-      `Parte de la lectura pública del episodio lo conecta con la decisión que el gabinete tomó en la sala de ${d.sala_nombre}: «${d.opcion_etiqueta}»${d.opcion_texto ? ` (${d.opcion_texto})` : ""}. El jurado va a preguntar explícitamente si esa decisión influyó en lo ocurrido.`,
-    sinDecision: () =>
-      `El episodio ocurre sin que el gobierno haya tomado todavía ninguna decisión de gestión registrada, así que el jurado va a evaluar la respuesta "en el vacío", sin poder atribuirla —a favor o en contra— a ninguna política previa.`,
-  },
-  crisis_fiscal: {
-    conDecision: (d) =>
-      `El anuncio llega apenas después de la decisión tomada en la sala de ${d.sala_nombre}: «${d.opcion_etiqueta}»${d.opcion_texto ? ` (${d.opcion_texto})` : ""}, algo que condiciona directamente cuánto margen de maniobra fiscal les queda para absorber el recorte.`,
-    sinDecision: () =>
-      `El anuncio los toma sin decisiones de gestión previas registradas, así que el margen de maniobra fiscal disponible es, por ahora, el de partida — sin nada propio que lo haya mejorado o empeorado.`,
-  },
-};
-
-// Arma el caso_critico final que ve un equipo puntual: el texto base fijo
-// de la sala + el parrafo de conexion dinamico segun su ultima decision.
-// Si la sala de crisis no tiene conector definido (por si se agregan mas
-// salas de crisis a futuro), devuelve el texto base sin modificar.
-function construirCasoCriticoParaEquipo(sala, equipoId) {
-  const conector = CONECTORES_CRISIS[sala.slug];
-  if (!conector) return sala.caso_critico;
-
-  const ultimaDecision = getUltimaDecisionEquipo(equipoId);
-  const parrafo = ultimaDecision ? conector.conDecision(ultimaDecision) : conector.sinDecision();
-  return `${sala.caso_critico}\n\n${parrafo}`;
-}
-
 // Aplica un objeto de deltas {eje_slug: delta} al equipo, clampeando cada
 // eje entre 0 y 100. Devuelve los efectos realmente aplicados (post-clamp).
 function aplicarEfectos(equipoId, efectos) {
@@ -141,16 +97,67 @@ function salasCompletadas(equipoId) {
   return row.c;
 }
 
-// Convierte una evaluacion de jurado (4 criterios de 1 a 5) en puntos de
-// Imagen Positiva: el promedio neutro (3 por criterio = 12 en total) no
-// suma ni resta; por encima o por debajo, mueve el eje hasta +/-8.
-function calcularPuntosCrisis(evaluacion) {
-  const suma =
-    (evaluacion.claridad || 0) +
-    (evaluacion.manejo_incertidumbre || 0) +
-    (evaluacion.coherencia || 0) +
-    (evaluacion.control_presion || 0);
-  return suma - 12;
+// ---------------------------------------------------------------------
+// Desempeño: promedio de todas las notas de 1 a 5 que cargó el staff para
+// un equipo — una por cada una de las 5 salas temáticas (facilitador) y
+// una por cada una de las 3 crisis presenciales (jurado, promediando sus
+// 3 criterios: coherencia, oratoria, manejo de los nervios). Se escala a
+// 0-100 igual que los demás ejes (1 -> 0, 3 -> 50, 5 -> 100). Si todavía
+// no se cargó ninguna nota devuelve null (no castiga al equipo por
+// evaluaciones pendientes).
+// ---------------------------------------------------------------------
+function getEvaluacionesTematicas(equipoId) {
+  return db
+    .prepare(
+      `SELECT et.*, s.slug as sala_slug, s.nombre as sala_nombre
+       FROM evaluacion_tematica et JOIN sala s ON s.id = et.sala_id
+       WHERE et.equipo_id = ?`
+    )
+    .all(equipoId);
+}
+
+function getEvaluacionesCrisis(equipoId) {
+  return db.prepare(`SELECT * FROM evaluacion_crisis WHERE equipo_id = ?`).all(equipoId);
+}
+
+function calcularDesempeno(equipoId) {
+  const notas = [];
+  for (const t of getEvaluacionesTematicas(equipoId)) {
+    if (t.puntaje != null) notas.push(t.puntaje);
+  }
+  for (const c of getEvaluacionesCrisis(equipoId)) {
+    const vals = [c.coherencia, c.oratoria, c.manejo_nervios].filter((v) => v != null);
+    if (vals.length) notas.push(vals.reduce((a, b) => a + b, 0) / vals.length);
+  }
+  if (!notas.length) return null;
+  const promedio = notas.reduce((a, b) => a + b, 0) / notas.length; // 1..5
+  return clamp(((promedio - 1) / 4) * 100);
+}
+
+// % electoral sugerido: promedio ponderado de los 6 ejes (los 5 de siempre
+// + Desempeño) según PESOS_SUGERIDO. Es solo un tentativo para ayudar al
+// admin a definir el % final del escrutinio (no se aplica solo). Si un eje
+// no tiene valor (típicamente Desempeño, mientras no haya notas cargadas)
+// se excluye del promedio en lugar de contar como 0, redistribuyendo su
+// peso entre el resto.
+function calcularPorcentajeSugerido(ejesFinales, desempeno) {
+  const valores = { ...ejesFinales, desempeno };
+  const entradas = PESOS_SUGERIDO.filter(([slug]) => valores[slug] != null);
+  const sumaPesos = entradas.reduce((acc, [, peso]) => acc + peso, 0);
+  if (!sumaPesos) return null;
+  const sumaPonderada = entradas.reduce((acc, [slug, peso]) => acc + peso * valores[slug], 0);
+  return Math.round((sumaPonderada / sumaPesos) * 10) / 10;
+}
+
+// Agrega desempeño + % sugerido a las filas de construirLeaderboard(). Se
+// usa solo en las vistas de staff (nunca en /api/public/leaderboard): son
+// datos internos de organización, no algo que vea el público ni los equipos.
+function construirLeaderboardStaff() {
+  return construirLeaderboard().map((row) => {
+    const desempeno = calcularDesempeno(row.equipo_id);
+    const porcentaje_sugerido = calcularPorcentajeSugerido(row.ejes, desempeno);
+    return { ...row, desempeno, porcentaje_sugerido };
+  });
 }
 
 function construirLeaderboard() {
@@ -177,12 +184,6 @@ function construirLeaderboard() {
   return tabla;
 }
 
-// Estado del "escrutinio final": si ya cerraron todas las salas tematicas
-// para las 5 provincias y, de las salas de crisis que se llegaron a
-// disparar, todas tienen evaluacion cargada para las 5 provincias. Mientras
-// no este todoCerrado, el panel publico sigue mostrando el tablero en vivo;
-// una vez que lo esta, deja de mostrarlo y espera a que el admin publique
-// el resultado final (ver server/routes/admin.js, /escrutinio/publicar).
 // Convierte un link "para humanos" (por ejemplo el que se copia al mirar un
 // video de YouTube, o el de un live de YouTube) en la URL embebible que
 // hace falta para insertarla en un <iframe>. Los links de Whereby, Daily.co
@@ -227,21 +228,17 @@ function getEstadoTransmision() {
   };
 }
 
+// Estado del "escrutinio final": si ya cerraron todas las salas tematicas
+// para las 5 provincias. Mientras no este todoCerrado, el panel publico
+// sigue mostrando el tablero en vivo; una vez que lo esta, deja de
+// mostrarlo y espera a que el admin publique el resultado final (ver
+// server/routes/admin.js, /escrutinio/publicar).
 function construirEstadoEscrutinio() {
   const jornada = db.prepare("SELECT * FROM jornada ORDER BY creado_en DESC LIMIT 1").get();
   const totalPasos = db.prepare("SELECT COUNT(*) as c FROM paso_recorrido").get().c;
   const pasosCerrados = db.prepare("SELECT COUNT(*) as c FROM paso_recorrido WHERE estado = 'cerrado'").get().c;
-  const totalEquipos = db.prepare("SELECT COUNT(*) as c FROM equipo").get().c;
 
-  const salasCrisisDisparadas = db
-    .prepare("SELECT s.id FROM sala s JOIN crisis_estado ce ON ce.sala_id = s.id WHERE ce.disparada = 1")
-    .all();
-  const crisisPendientes = salasCrisisDisparadas.filter((s) => {
-    const evaluadas = db.prepare("SELECT COUNT(*) as c FROM evaluacion_crisis WHERE sala_id = ?").get(s.id).c;
-    return evaluadas < totalEquipos;
-  }).length;
-
-  const todoCerrado = totalPasos > 0 && pasosCerrados === totalPasos && crisisPendientes === 0;
+  const todoCerrado = totalPasos > 0 && pasosCerrados === totalPasos;
 
   return {
     todo_cerrado: todoCerrado,
@@ -257,14 +254,17 @@ module.exports = {
   getPasosDeEquipo,
   getProblemaParaEquipo,
   getAperturaVariante,
-  getUltimaDecisionEquipo,
-  construirCasoCriticoParaEquipo,
   aplicarEfectos,
   sumaAjustesManualesPorEje,
   salasCompletadas,
-  calcularPuntosCrisis,
   construirLeaderboard,
+  construirLeaderboardStaff,
   construirEstadoEscrutinio,
   normalizarUrlTransmision,
   getEstadoTransmision,
+  CRISIS_TIPOS,
+  getEvaluacionesTematicas,
+  getEvaluacionesCrisis,
+  calcularDesempeno,
+  calcularPorcentajeSugerido,
 };

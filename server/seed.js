@@ -2,7 +2,9 @@
 // Carga 5 provincias reales (PBA, CABA, Formosa, Santa Fe, Chubut) como
 // equipos, 5 salas temáticas (Economía, Desarrollo Social, Seguridad,
 // Crisis Interna, Salud) con 75 opciones personalizadas (5 salas x 5
-// provincias x 3 opciones), y 3 salas de crisis independientes.
+// provincias x 3 opciones). Las 3 salas de crisis (Comunicación, Orden
+// Público, Fiscal) se juegan en persona con sobres en papel: no forman
+// parte de este seed.
 // Es idempotente: si ya hay una jornada cargada, no vuelve a insertar.
 
 const { v4: uuid } = require("uuid");
@@ -299,36 +301,18 @@ const SALAS_TEMATICAS = [
   },
 ];
 
-const SALAS_CRISIS = [
-  {
-    slug: "crisis_comunicacional",
-    nombre: "Sala de Crisis 1 — Crisis de Comunicación",
-    orden_crisis: 1,
-    caso_critico:
-      "Se filtra a la prensa nacional un audio interno del gabinete provincial discutiendo, en términos crudos, el costo político de una decisión reciente. El material se viraliza en minutos. El/la Jefe/a de Gabinete tiene que salir a dar la cara ante los medios (representados por el jurado) sin guion previo, sosteniendo un relato coherente con lo actuado en las salas anteriores y administrando la incertidumbre sobre qué más podría filtrarse.",
-  },
-  {
-    slug: "crisis_seguridad",
-    nombre: "Sala de Crisis 2 — Crisis de Orden Público",
-    orden_crisis: 2,
-    caso_critico:
-      "Un episodio de violencia con repercusión nacional (una protesta que deriva en incidentes, o un hecho delictivo de alto impacto) pone al gobierno provincial bajo el foco de la opinión pública en tiempo real. El jurado, en el rol de prensa y organismos de control, interpela al equipo para que explique en el momento qué va a hacer y por qué, exigiendo definiciones concretas y no solo gestos.",
-  },
-  {
-    slug: "crisis_fiscal",
-    nombre: "Sala de Crisis 3 — Crisis Fiscal",
-    orden_crisis: 3,
-    caso_critico:
-      "La Nación anuncia, sin previo aviso, un recorte extraordinario de transferencias a las provincias por un desequilibrio macroeconómico sobreviniente. El gabinete tiene que comunicar en el momento, ante el jurado (en el rol de acreedores, gremios estatales y prensa económica), cómo va a sostener el funcionamiento del Estado provincial sin entrar en default ni en un conflicto social inmanejable.",
-  },
-];
+// Las 3 salas de crisis (Comunicación, Orden Público, Fiscal) ya no se
+// juegan a través de la plataforma: pasaron a ser en persona, con sobres en
+// papel que se le entregan al Gobernador/a, Jefe/a de Gabinete y Ministro/a
+// de Economía respectivamente cuando la organización los "saca" de su sala
+// temática. Ver el documento aparte con el texto de cada sobre.
 
 const ORDEN_TEMATICAS = ["economia", "desarrollo_social", "seguridad", "crisis_interna", "salud"];
 
 const EQUIPOS = [
   {
     codigo: "PBA",
-    pin: "2001",
+    pin: "PBAgobierno1",
     nombre: "Provincia de Buenos Aires",
     contexto_arranque:
       "Partido dominante estructuralmente competitivo aunque no monolítico: fuerte en el conurbano (intendentes con poder territorial propio, sindicatos, movimientos sociales) y más disputado en el interior, donde compite con fuerzas de derecha ligadas al agro. Relación estructuralmente tensa con la Nación por la coparticipación, más allá del signo político que la gobierne.",
@@ -342,7 +326,7 @@ const EQUIPOS = [
   },
   {
     codigo: "CABA",
-    pin: "2002",
+    pin: "CABAgobierno1",
     nombre: "Ciudad Autónoma de Buenos Aires",
     contexto_arranque:
       "Electorado urbano de ingresos medios y medios-altos, con alta polarización entre un núcleo tradicional de centroderecha (identificado con la gestión \"prolija\") y un electorado más joven y golpeado que se corrió hacia opciones libertarias. Cuentas fiscales relativamente ordenadas con superávit primario como bandera, y un acercamiento explícito a la Nación de cara a 2027.",
@@ -356,7 +340,7 @@ const EQUIPOS = [
   },
   {
     codigo: "FSA",
-    pin: "2003",
+    pin: "FSAgobierno1",
     nombre: "Provincia de Formosa",
     contexto_arranque:
       "Estructura político-partidaria provincial fuertemente consolidada, con baja alternancia histórica en el Poder Ejecutivo y una oposición institucional minoritaria. Alta dependencia de las transferencias discrecionales y de la coparticipación federal por baja recaudación propia. Economía postergada, con el empleo público como principal empleador formal.",
@@ -370,7 +354,7 @@ const EQUIPOS = [
   },
   {
     codigo: "SFE",
-    pin: "2004",
+    pin: "SFEgobierno1",
     nombre: "Provincia de Santa Fe",
     contexto_arranque:
       "Base electoral urbana concentrada en Rosario, con un peso relevante del interior agroindustrial. Una coalición de centro y centroderecha llegó a la gobernación apoyada en el reclamo de mayor seguridad y gestión. Motor agroexportador de primer orden (soja, cereales, complejo oleaginoso) con alta sensibilidad a sequías y precios internacionales.",
@@ -384,7 +368,7 @@ const EQUIPOS = [
   },
   {
     codigo: "CHU",
-    pin: "2005",
+    pin: "CHUgobierno1",
     nombre: "Provincia de Chubut",
     contexto_arranque:
       "Base electoral pequeña y territorialmente dispersa, con fuerte peso de empleados públicos y de trabajadores del sector hidrocarburífero y pesquero. Fuerte dependencia de la renta petrolera y de las transferencias nacionales; hoy en un momento favorable por la condonación de deuda y la baja de retenciones petroleras, tras un historial de conflicto por regalías y atrasos salariales.",
@@ -399,13 +383,13 @@ const EQUIPOS = [
 ];
 
 const STAFF = [
-  { username: "admin", password: "admin123", staff_rol: "admin", nombre: "Organización general", sala: null },
-  { username: "facilitador1", password: "facil123", staff_rol: "facilitador", nombre: "Facilitador — Economía", sala: "economia" },
-  { username: "facilitador2", password: "facil123", staff_rol: "facilitador", nombre: "Facilitador — Desarrollo Social", sala: "desarrollo_social" },
-  { username: "facilitador3", password: "facil123", staff_rol: "facilitador", nombre: "Facilitador — Seguridad", sala: "seguridad" },
-  { username: "facilitador4", password: "facil123", staff_rol: "facilitador", nombre: "Facilitador — Crisis Interna", sala: "crisis_interna" },
-  { username: "facilitador5", password: "facil123", staff_rol: "facilitador", nombre: "Facilitador — Salud", sala: "salud" },
-  { username: "jurado1", password: "jurado123", staff_rol: "jurado", nombre: "Jurado — Salas de Crisis", sala: null },
+  { username: "admin", password: "Admin2026Pro!", staff_rol: "admin", nombre: "Organización general", sala: null },
+  { username: "facilitador1", password: "FacilEconomia26", staff_rol: "facilitador", nombre: "Facilitador — Economía", sala: "economia" },
+  { username: "facilitador2", password: "FacilSocial26", staff_rol: "facilitador", nombre: "Facilitador — Desarrollo Social", sala: "desarrollo_social" },
+  { username: "facilitador3", password: "FacilSeguridad26", staff_rol: "facilitador", nombre: "Facilitador — Seguridad", sala: "seguridad" },
+  { username: "facilitador4", password: "FacilCrisis26", staff_rol: "facilitador", nombre: "Facilitador — Crisis Interna", sala: "crisis_interna" },
+  { username: "facilitador5", password: "FacilSalud26", staff_rol: "facilitador", nombre: "Facilitador — Salud", sala: "salud" },
+  { username: "jurado1", password: "JuradoCrisis26", staff_rol: "jurado", nombre: "Jurado — Salas de Crisis", sala: null },
 ];
 
 function run() {
@@ -462,19 +446,6 @@ function run() {
       );
     }
 
-    for (const c of SALAS_CRISIS) {
-      const id = uuid();
-      salaIdBySlug[c.slug] = id;
-      db.prepare(
-        `INSERT INTO sala (id, slug, nombre, tipo, orden_crisis, caso_critico)
-         VALUES (?, ?, ?, 'crisis', ?, ?)`
-      ).run(id, c.slug, c.nombre, c.orden_crisis, c.caso_critico);
-
-      db.prepare(
-        `INSERT INTO crisis_estado (id, jornada_id, sala_id, disparada) VALUES (?, ?, ?, 0)`
-      ).run(uuid(), jornadaId, id);
-    }
-
     EQUIPOS.forEach((eq, idx) => {
       const equipoId = uuid();
       const orden = rotate(ORDEN_TEMATICAS, idx);
@@ -518,7 +489,7 @@ function run() {
       );
     }
 
-    console.log("[seed] Listo: 5 provincias, 5 salas tematicas (75 opciones), 3 salas de crisis.");
+    console.log("[seed] Listo: 5 provincias, 5 salas tematicas (75 opciones). Las salas de crisis se juegan en persona, en papel.");
     console.log("[seed] Codigos de equipo (codigo / PIN):");
     EQUIPOS.forEach((e) => console.log(`         ${e.codigo} / ${e.pin}  — ${e.nombre}`));
     console.log("[seed] Credenciales de staff (usuario / contraseña):");
@@ -536,6 +507,7 @@ function run() {
 const TABLAS_A_LIMPIAR = [
   "decision",
   "evaluacion_crisis",
+  "evaluacion_tematica",
   "puntaje_ajuste",
   "paso_recorrido",
   "crisis_estado",
@@ -564,4 +536,4 @@ if (require.main === module) {
   process.exit(0);
 }
 
-module.exports = { run, resetAndReseed, SALAS_TEMATICAS, SALAS_CRISIS, EQUIPOS, ORDEN_TEMATICAS };
+module.exports = { run, resetAndReseed, SALAS_TEMATICAS, EQUIPOS, ORDEN_TEMATICAS };

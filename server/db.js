@@ -101,16 +101,33 @@ CREATE TABLE IF NOT EXISTS decision (
   registrado_en TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Evaluación de desempeño en las 3 salas de crisis (ahora presenciales, en
+-- papel: no hay una fila en la tabla "sala" para cada una, así que se
+-- identifican por un slug fijo — ver CRISIS_TIPOS en server/logic.js — en
+-- lugar de una sala_id. El jurado carga 3 criterios de 1 a 5 (coherencia,
+-- oratoria, manejo de los nervios) por equipo y por crisis.
 CREATE TABLE IF NOT EXISTS evaluacion_crisis (
   id TEXT PRIMARY KEY,
   equipo_id TEXT NOT NULL REFERENCES equipo(id),
-  sala_id TEXT NOT NULL REFERENCES sala(id),
-  claridad INTEGER,
-  manejo_incertidumbre INTEGER,
+  crisis_slug TEXT NOT NULL,
   coherencia INTEGER,
-  control_presion INTEGER,
+  oratoria INTEGER,
+  manejo_nervios INTEGER,
   comentario TEXT,
   jurado_id TEXT REFERENCES usuario(id),
+  creado_en TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(equipo_id, crisis_slug)
+);
+
+-- Evaluación de desempeño en cada una de las 5 salas temáticas: el
+-- facilitador (o el admin) carga un puntaje de 1 a 5 por equipo y por sala.
+CREATE TABLE IF NOT EXISTS evaluacion_tematica (
+  id TEXT PRIMARY KEY,
+  equipo_id TEXT NOT NULL REFERENCES equipo(id),
+  sala_id TEXT NOT NULL REFERENCES sala(id),
+  puntaje INTEGER,
+  comentario TEXT,
+  staff_id TEXT REFERENCES usuario(id),
   creado_en TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE(equipo_id, sala_id)
 );
@@ -166,5 +183,8 @@ ensureColumn("crisis_estado", "cronometro_finalizado_en", "TEXT");
 ensureColumn("decision", "opcion_texto", "TEXT");
 ensureColumn("jornada", "transmision_url", "TEXT");
 ensureColumn("jornada", "transmision_activa", "INTEGER NOT NULL DEFAULT 0");
+ensureColumn("evaluacion_crisis", "crisis_slug", "TEXT");
+ensureColumn("evaluacion_crisis", "oratoria", "INTEGER");
+ensureColumn("evaluacion_crisis", "manejo_nervios", "INTEGER");
 
 module.exports = db;
