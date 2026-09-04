@@ -9,7 +9,7 @@
 <body>
 <header class="topbar">
   <div>
-    <h1>🛠️ Panel de Administración</h1>
+    <h1><span class="live-dot"></span>🛠️ Panel de Administración</h1>
     <div class="sub" id="topbar-sub">Sala de Escape Política — Gabinetes Provinciales</div>
   </div>
   <button class="secondary small" id="btn-logout" style="display:none">Salir</button>
@@ -29,12 +29,7 @@
         <button id="btn-login">Entrar</button>
       </div>
       <div class="small-muted">
-        <p>Credenciales demo (cambiar antes del evento real):</p>
-        <ul>
-          <li><strong>admin / admin123</strong> — organizador general</li>
-          <li><strong>facilitador1..5 / facil123</strong> — un facilitador por sala temática</li>
-          <li><strong>jurado1 / jurado123</strong> — jurado de las salas de crisis</li>
-        </ul>
+        <p>Pedile el usuario y la contraseña a la organización. No se muestran acá por seguridad.</p>
       </div>
     </div>
   </div>
@@ -43,14 +38,20 @@
 
     <div class="card">
       <h2>Zona de reinicio</h2>
-      <p class="small-muted">Vuelve toda la jornada a cero: borra el progreso de las 5 provincias, las decisiones tomadas, las salas de crisis disparadas/evaluadas y los ajustes manuales. Recarga automáticamente este panel, los paneles de equipo conectados y el panel público. No se puede deshacer.</p>
+      <p class="small-muted">Vuelve toda la jornada a cero: borra el progreso de las 5 provincias, las decisiones tomadas y los ajustes manuales. Recarga automáticamente este panel, los paneles de equipo conectados y el panel público. No se puede deshacer.</p>
       <button class="danger" id="btn-reset-todo">♻️ Reiniciar jornada completa</button>
     </div>
 
     <div class="card">
-      <h2>Control de salas de crisis</h2>
-      <p class="small-muted">Cada una se dispara para las 5 provincias en simultáneo, en el momento no anunciado que decidas. Son independientes de la Sala 4 (Crisis Interna), que es una sala temática más del recorrido.</p>
-      <div id="crisis-control-area"></div>
+      <h2>🚀 Disparar sala por posición (las 5 provincias a la vez)</h2>
+      <p class="small-muted">
+        Cada provincia tiene su propio orden de salas temáticas, así que "Sala 1" de una provincia puede ser
+        Economía y de otra puede ser Salud — no importa: este botón inicia, para las 5 provincias al mismo
+        tiempo, la sala que a cada una le toca en esa posición de su recorrido. Si alguna provincia ya tiene esa
+        sala iniciada o cerrada, simplemente se salta y no da error. El control individual de cada sala sigue
+        disponible más abajo, en "Estado de los equipos" (Iniciar / Forzar cierre por provincia).
+      </p>
+      <div id="rotacion-control-area" style="display:flex;gap:10px;flex-wrap:wrap"></div>
     </div>
 
     <div class="card">
@@ -80,8 +81,33 @@
     </div>
 
     <div class="card">
-      <h2>Evaluación de salas de crisis (jurado)</h2>
-      <div id="crisis-eval-area" class="small-muted">Se dispara una sala de crisis para cargar evaluaciones.</div>
+      <h2>⭐ Evaluación de desempeño (1 a 5)</h2>
+      <p class="small-muted">
+        Notas del staff que alimentan el eje <strong>Desempeño</strong>: una por cada una de las 5 salas temáticas
+        (la carga el facilitador de esa sala o el admin) y una por cada una de las 3 crisis presenciales, con 3
+        criterios cada una — <strong>coherencia</strong>, <strong>oratoria</strong> y <strong>manejo de los
+        nervios</strong> — que la carga el jurado o el admin. El promedio de todas las notas cargadas de un
+        equipo define su Desempeño (0-100) y entra en el % sugerido de abajo. Mientras no haya ninguna nota
+        cargada, el equipo simplemente no tiene Desempeño todavía (no cuenta como 0).
+      </p>
+      <div id="evaluacion-select-area" style="margin-bottom:14px">
+        <label>Provincia a evaluar</label>
+        <select id="evaluacion-equipo"></select>
+      </div>
+      <div id="evaluacion-form-area"></div>
+    </div>
+
+    <div class="card">
+      <h2>🗳️ % electoral sugerido</h2>
+      <p class="small-muted">
+        Promedio ponderado de los 6 ejes (Intención de Voto, Imagen Positiva, Desempeño, Gobernabilidad, Salud
+        Fiscal y Orden Público), de más a menos peso en ese orden. Es un <strong>tentativo</strong> para ayudar a
+        definir el % final del escrutinio — no se aplica solo ni reemplaza la decisión del jurado/organización.
+      </p>
+      <table>
+        <thead><tr><th>Provincia</th><th>Desempeño</th><th>% Sugerido</th></tr></thead>
+        <tbody id="tabla-sugerido"></tbody>
+      </table>
     </div>
 
     <div class="card">
@@ -112,7 +138,7 @@
     <div class="card">
       <h2>Leaderboard — gana Imagen Positiva más alta</h2>
       <table>
-        <thead><tr><th>#</th><th>Provincia</th><th>Imagen Positiva</th><th>Intención de Voto</th><th>Gobernabilidad</th><th>Salud Fiscal</th><th>Orden Público</th><th>Salas completadas</th></tr></thead>
+        <thead><tr><th>#</th><th>Provincia</th><th>Imagen Positiva</th><th>Intención de Voto</th><th>Desempeño</th><th>Gobernabilidad</th><th>Salud Fiscal</th><th>Orden Público</th><th>Salas completadas</th></tr></thead>
         <tbody id="tabla-leaderboard"></tbody>
       </table>
     </div>

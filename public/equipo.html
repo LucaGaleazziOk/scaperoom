@@ -9,7 +9,7 @@
 <body>
 <header class="topbar">
   <div>
-    <h1>🏛️ Panel de Equipo</h1>
+    <h1><span class="live-dot"></span>🏛️ Panel de Equipo</h1>
     <div class="sub" id="topbar-sub">Sala de Escape Política</div>
   </div>
   <button class="secondary small" id="btn-logout" style="display:none">Salir</button>
@@ -24,10 +24,10 @@
     <p class="small-muted">Acceso único por equipo, a cargo del/la Jefe/a de Gabinete de Ministros. El resto de los roles se juega de forma presencial con la carpeta física.</p>
     <div class="grid grid-2">
       <div>
-        <label>Código de equipo</label>
-        <input id="in-codigo" placeholder="Ej: PBA" autocomplete="off" />
-        <label>PIN</label>
-        <input id="in-pin" placeholder="Ej: 2001" autocomplete="off" />
+        <label>Código de provincia</label>
+        <input id="in-codigo" placeholder="Ej: PBA" autocomplete="off" style="text-transform:uppercase" />
+        <label>Contraseña</label>
+        <input id="in-pin" type="password" placeholder="Contraseña de tu provincia" autocomplete="off" />
       </div>
       <div>
         <label>Tu nombre (opcional)</label>
@@ -64,11 +64,6 @@
       <h2>Objetivo secreto — Jefe/a de Gabinete</h2>
       <p class="small-muted">Este objetivo lo ves únicamente vos. No es necesario que coincida con lo que decida el resto del equipo.</p>
       <div class="objetivo-secreto" id="objetivo-secreto">—</div>
-    </div>
-
-    <div class="card" id="crisis-card" style="display:none">
-      <h2>🚨 Salas de crisis</h2>
-      <div id="crisis-texto"></div>
     </div>
 
     <!-- Transmisión en vivo de quien esté hablando en la sala de crisis en
@@ -110,23 +105,7 @@
      esquina de la pantalla aunque el equipo scrollee el resto del panel. -->
 <div id="timer-fijo" class="timer-fijo hidden">
   <span id="timer-fijo-label">Sala</span>
-  <span id="timer-fijo-valor">05:00</span>
-</div>
-
-<!-- Pantalla completa de sala de crisis: sin botón para cerrarla. Se
-     muestra apenas se dispara la crisis (con la consigna) y arranca su
-     propio cronómetro de 8 minutos recién cuando el admin lo inicia de
-     forma remota desde el panel de administración. -->
-<div id="crisis-overlay" class="crisis-overlay hidden">
-  <div class="crisis-overlay-inner">
-    <div class="crisis-overlay-badge">🚨 Sala de Crisis</div>
-    <h2 id="crisis-overlay-nombre"></h2>
-    <p id="crisis-overlay-texto"></p>
-    <div class="crisis-overlay-timer-wrap">
-      <div class="crisis-overlay-timer" id="crisis-overlay-timer">--:--</div>
-      <p class="small-muted" id="crisis-overlay-espera"></p>
-    </div>
-  </div>
+  <span id="timer-fijo-valor">08:00</span>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>

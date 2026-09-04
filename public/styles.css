@@ -47,7 +47,6 @@ body {
   min-height: 100vh;
 }
 
-/* marca institucional: franja diagonal dorada, sutil, en el fondo */
 body::before {
   content: "";
   position: fixed;
@@ -84,9 +83,45 @@ header.topbar h1 {
   font-weight: 800;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: #fff;
+  background: linear-gradient(100deg, #fff 30%, var(--gold-light) 60%, #fff 90%);
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmerTitle 6s linear infinite;
+}
+@keyframes shimmerTitle {
+  0% { background-position: 0% 50%; }
+  100% { background-position: -220% 50%; }
 }
 header.topbar .sub { font-size: 12px; opacity: 0.82; color: var(--gold-light); font-weight: 600; letter-spacing: .01em; }
+
+.live-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #33d17a;
+  margin-right: 7px;
+  box-shadow: 0 0 0 0 rgba(51, 209, 122, 0.6);
+  animation: pulseGlowGreen 1.8s ease-in-out infinite;
+  vertical-align: middle;
+}
+@keyframes pulseGlowGreen {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(51, 209, 122, 0.55); }
+  50% { box-shadow: 0 0 0 6px rgba(51, 209, 122, 0); }
+}
+
+.chip-sugerido {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-weight: 800;
+  font-size: 13px;
+  background: linear-gradient(120deg, var(--gold), var(--gold-light));
+  color: #402c02;
+  box-shadow: 0 4px 12px rgba(240, 179, 35, 0.35);
+}
 
 .container { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 24px 20px; }
 
@@ -235,8 +270,6 @@ tr:hover td { background: var(--blue-100); }
 .eje-barra .eje-fill { height: 100%; background: var(--blue-800); border-radius: 6px; }
 .eje-barra.principal .eje-fill { background: var(--gold); }
 
-/* Cronometro fijo de la sala tematica en curso: se mantiene anclado a la
-   esquina de la pantalla aunque se scrollee el resto del panel. */
 .timer-fijo {
   position: fixed;
   bottom: 22px;
@@ -274,7 +307,6 @@ tr:hover td { background: var(--blue-100); }
 .timer-fijo.timer-urgente #timer-fijo-valor { color: #ff8b7a; }
 .timer-fijo.timer-agotado #timer-fijo-valor { color: var(--red); }
 
-/* Toast que avisa que arranca el cronometro de una sala tematica */
 .toast-alerta {
   position: fixed;
   top: 18px;
@@ -294,54 +326,6 @@ tr:hover td { background: var(--blue-100); }
   text-align: center;
 }
 .toast-alerta.visible { opacity: 1; transform: translate(-50%, 0); }
-
-/* Pantalla completa de sala de crisis: bloquea todo el panel, sin boton
-   de cierre. El scroll del body se congela mientras esta activa. */
-body.crisis-lock { overflow: hidden; }
-.crisis-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  background: linear-gradient(160deg, rgba(7, 16, 34, 0.97), rgba(10, 30, 63, 0.97));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 30px;
-  animation: fadeUp 0.3s ease both;
-}
-.crisis-overlay-inner { max-width: 640px; text-align: center; color: #fff; }
-.crisis-overlay-badge {
-  display: inline-block;
-  background: var(--red);
-  color: #fff;
-  font-weight: 900;
-  font-size: 13px;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  padding: 9px 20px;
-  border-radius: 20px;
-  margin-bottom: 20px;
-  animation: pulseGlow 1.4s ease-in-out infinite;
-}
-.crisis-overlay-inner h2 {
-  font-size: 26px;
-  margin: 0 0 16px;
-  text-transform: uppercase;
-  letter-spacing: .02em;
-  color: var(--gold-light);
-}
-.crisis-overlay-inner p { font-size: 15px; line-height: 1.65; color: var(--text-inv); opacity: .92; white-space: pre-line; }
-.crisis-overlay-timer-wrap { margin-top: 28px; }
-.crisis-overlay-timer {
-  font-size: 58px;
-  font-weight: 900;
-  font-variant-numeric: tabular-nums;
-  color: #fff;
-  letter-spacing: .02em;
-}
-.crisis-overlay-timer.timer-urgente { color: #ff8b7a; animation: pulseGlow 1s ease-in-out infinite; }
-.crisis-overlay-timer.timer-pausado { color: var(--gold-light); }
-.crisis-overlay-timer-wrap .small-muted { color: rgba(238, 242, 255, 0.75); margin-top: 10px; }
 
 .objetivo-secreto {
   background: #fbf3de;
@@ -363,14 +347,10 @@ body.crisis-lock { overflow: hidden; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(240, 179, 35, 0.4); border-radius: 8px; }
 
-/* ---------------------------------------------------------------------
-   Transmisión en vivo de la sala de crisis: contenedor responsive 16:9
-   reutilizado en el panel de equipo y en la pantalla pública.
-   --------------------------------------------------------------------- */
 .transmision-embed-wrap {
   position: relative;
   width: 100%;
-  padding-top: 56.25%; /* 16:9 */
+  padding-top: 56.25%;
   height: 0;
   overflow: hidden;
   border-radius: 10px;
@@ -386,9 +366,6 @@ body.crisis-lock { overflow: hidden; }
   border: 0;
 }
 
-/* ---------------------------------------------------------------------
-   Pantalla de inicio: 3 accesos grandes centrados (equipos / admin / general)
-   --------------------------------------------------------------------- */
 .home-wrap {
   min-height: calc(100vh - 76px);
   display: flex;

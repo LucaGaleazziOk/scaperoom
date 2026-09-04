@@ -11,7 +11,17 @@ const NOMBRE_EJE = {
   gobernabilidad: "Gobernabilidad",
   salud_fiscal: "Salud Fiscal",
   orden_publico: "Orden Público",
+  desempeno: "Desempeño",
 };
+
+const NOMBRE_SALA_TEMATICA = {
+  economia: "Economía",
+  desarrollo_social: "Desarrollo Social",
+  seguridad: "Seguridad",
+  crisis_interna: "Crisis Interna",
+  salud: "Salud",
+};
+const ORDEN_SALAS_TEMATICAS = ["economia", "desarrollo_social", "seguridad", "crisis_interna", "salud"];
 
 function showMsg(text, type) {
   $("msg-area").innerHTML = `<div class="msg ${type}">${text}</div>`;
@@ -74,24 +84,17 @@ function conectarSocket() {
   [
     "paso:iniciado",
     "paso:cerrado",
-    "crisis:iniciada",
-    "crisis:cronometro_iniciado",
-    "crisis:cronometro_pausado",
-    "crisis:cronometro_reanudado",
-    "crisis:cronometro_finalizado",
-    "crisis:evaluada",
+    "rotacion:iniciada_todos",
     "puntaje:ajustado",
     "equipo:rol_tomado",
     "escrutinio:guardado",
     "escrutinio:publicado",
     "escrutinio:despublicado",
     "transmision:actualizada",
+    "evaluacion:actualizada",
   ].forEach((ev) => {
     socket.on(ev, () => cargarTodo());
   });
-  // Tras un reinicio total (ver btn-reset-todo) los equipos/usuarios son
-  // nuevos: la sesion actual (incluida la de quien disparo el reinicio) ya
-  // no es valida, asi que la unica salida limpia es recargar la pagina.
   socket.on("app:reset", () => {
     showMsg("La jornada se reinició. Recargando…", "ok");
     setTimeout(() => location.reload(), 1000);
@@ -100,7 +103,7 @@ function conectarSocket() {
 
 async function resetearTodo() {
   const confirmado = confirm(
-    "¿Reiniciar TODA la jornada?\n\nEsto borra el progreso de las 5 provincias, las decisiones tomadas, las salas de crisis disparadas/evaluadas y los ajustes manuales, y vuelve todo a cero.\n\nEsta acción no se puede deshacer."
+    "¿Reiniciar TODA la jornada?\n\nEsto borra el progreso de las 5 provincias, las decisiones tomadas y los ajustes manuales, y vuelve todo a cero.\n\nEsta acción no se puede deshacer."
   );
   if (!confirmado) return;
   try {
@@ -117,20 +120,119 @@ async function cargarTodo() {
   try {
     const overview = await api("/api/admin/overview");
     lastOverview = overview;
-    renderCrisisControl(overview);
+    renderRotacionControl(overview);
     renderTransmisionControl(overview);
     renderOverview(overview);
-    renderCrisisEval(overview);
     renderLeaderboard(overview.leaderboard);
+    renderSugerido(overview.leaderboard);
     fillEquipoSelect(overview.equipos.map((e) => e.equipo));
     fillEjeSelect(overview.ejes);
+    fillEvaluacionEquipoSelect(overview.equipos.map((e) => e.equipo));
+    renderEvaluacionForm();
   } catch (e) {
     showMsg(e.message, "error");
   }
   cargarEscrutinio();
 }
 
-// ---------------- ESCRUTINIO FINAL ----------------
+function fillEvaluacionEquipoSelect(equipos) {
+  const sel = $("evaluacion-equipo");
+  if (sel.dataset.filled === "1") return;
+  sel.innerHTML = equipos.map((e) => `<option value="${e.id}">${e.codigo} — ${e.nombre}</option>`).join("");
+  sel.dataset.filled = "1";
+  sel.addEventListener("change", renderEvaluacionForm);
+}
+
+function selectNota(name, valorActual) {
+  const opciones = ["", "1", "2", "3", "4", "5"]
+    .map((v) => `<option value="${v}" ${String(valorActual ?? "") === v ? "selected" : ""}>${v === "" ? "— sin nota —" : v}</option>`)
+    .join("");
+  return `<select data-nota="${name}" style="width:110px;display:inline-block">${opciones}</select>`;
+}
+
+function renderEvaluacionForm() {
+  if (!lastOverview) return;
+  const equipoId = $("evaluacion-equipo").value;
+  const eq = lastOverview.equipos.find((e) => e.equipo.id === equipoId);
+  const area = $("evaluacion-form-area");
+  if (!eq) {
+    area.innerHTML = "";
+    return;
+  }
+  const puedeTematica = session.usuario.staff_rol === "admin" || session.usuario.staff_rol === "facilitador";
+  const puedeCrisis = session.usuario.staff_rol === "admin" || session.usuario.staff_rol === "jurado";
+
+  const filasTematicas = ORDEN_SALAS_TEMATICAS.map((slug) => {
+    const val = eq.evaluaciones_tematicas ? eq.evaluaciones_tematicas[slug] : null;
+    return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <strong style="min-width:180px">${NOMBRE_SALA_TEMATICA[slug]}</strong>
+      ${selectNota(`tematica:${slug}`, val)}
+    </div>`;
+  }).join("");
+
+  const filasCrisis = (lastOverview.crisis_tipos || [])
+    .map((c) => {
+      const val = (eq.evaluaciones_crisis && eq.evaluaciones_crisis[c.slug]) || {};
+      return `<div style="margin-bottom:12px">
+        <strong>${c.nombre}</strong> <span class="small-muted">(se convoca a: ${c.rol})</span>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:6px">
+          <label style="margin:0">Coherencia ${selectNota(`crisis:${c.slug}:coherencia`, val.coherencia)}</label>
+          <label style="margin:0">Oratoria ${selectNota(`crisis:${c.slug}:oratoria`, val.oratoria)}</label>
+          <label style="margin:0">Manejo de los nervios ${selectNota(`crisis:${c.slug}:manejo_nervios`, val.manejo_nervios)}</label>
+        </div>
+      </div>`;
+    })
+    .join("");
+
+  area.innerHTML = `
+    <h3>Salas temáticas</h3>
+    ${puedeTematica ? filasTematicas : '<p class="small-muted">Solo el admin o el facilitador de cada sala pueden cargar esta nota.</p>'}
+    <h3 style="margin-top:16px">Crisis presenciales (jurado)</h3>
+    ${puedeCrisis ? filasCrisis : '<p class="small-muted">Solo el admin o el jurado pueden cargar esta nota.</p>'}
+  `;
+
+  area.querySelectorAll("select[data-nota]").forEach((sel) => {
+    sel.addEventListener("change", async () => {
+      const [tipo, a, b] = sel.dataset.nota.split(":");
+      const valor = sel.value ? Number(sel.value) : null;
+      try {
+        if (tipo === "tematica") {
+          if (valor == null) return;
+          await api("/api/admin/evaluacion/tematica", {
+            method: "POST",
+            body: JSON.stringify({ equipo_id: equipoId, sala_slug: a, puntaje: valor }),
+          });
+        } else {
+          const crisisSlug = a;
+          const criterio = b;
+          const actual = (eq.evaluaciones_crisis && eq.evaluaciones_crisis[crisisSlug]) || {};
+          const payload = { equipo_id: equipoId, crisis_slug: crisisSlug, ...actual };
+          payload[criterio] = valor;
+          await api("/api/admin/evaluacion/crisis", { method: "POST", body: JSON.stringify(payload) });
+        }
+        showMsg("Nota guardada.", "ok");
+        cargarTodo();
+      } catch (e) {
+        showMsg(e.message, "error");
+      }
+    });
+  });
+}
+
+function renderSugerido(tabla) {
+  const el = $("tabla-sugerido");
+  if (!el) return;
+  el.innerHTML = tabla
+    .map(
+      (row) => `<tr>
+        <td>${row.codigo} — ${row.nombre}</td>
+        <td>${row.desempeno == null ? '<span class="small-muted">sin evaluar</span>' : row.desempeno}</td>
+        <td>${row.porcentaje_sugerido == null ? "—" : `<span class="chip-sugerido">${row.porcentaje_sugerido}%</span>`}</td>
+      </tr>`
+    )
+    .join("");
+}
+
 async function cargarEscrutinio() {
   if (session.usuario.staff_rol !== "admin") {
     $("escrutinio-estado-msg").textContent = "Solo el admin puede cargar y publicar el resultado final.";
@@ -151,8 +253,8 @@ function renderEscrutinio(data) {
   $("escrutinio-estado-msg").textContent = estado.publicado
     ? `Resultado final publicado${estado.publicado_en ? " a las " + new Date(estado.publicado_en).toLocaleTimeString() : ""}. El panel público y las miniaturas de equipo ya lo están mostrando.`
     : estado.todo_cerrado
-    ? "Todas las salas temáticas y de crisis están cerradas. Cargá los porcentajes y publicá cuando quieras."
-    : "Todavía hay salas temáticas o de crisis sin cerrar. Podés dejar un borrador, pero no vas a poder publicar hasta que todo esté cerrado (mientras tanto el panel público sigue mostrando el tablero en vivo).";
+    ? "Todas las salas temáticas están cerradas. Cargá los porcentajes y publicá cuando quieras."
+    : "Todavía hay salas temáticas sin cerrar. Podés dejar un borrador, pero no vas a poder publicar hasta que todo esté cerrado (mientras tanto el panel público sigue mostrando el tablero en vivo).";
 
   const filas = equipos
     .map(
@@ -237,143 +339,33 @@ function renderEscrutinio(data) {
   }
 }
 
-function renderCrisisControl(overview) {
+function renderRotacionControl(overview) {
   const puedeDisparar = session.usuario.staff_rol === "admin";
-  $("crisis-control-area").innerHTML = overview.salas_crisis
-    .map((s) => {
-      const badge = s.disparada ? `<span class="badge cerrado">Ya disparada</span>` : `<span class="badge pendiente">Sin disparar</span>`;
-      const boton = puedeDisparar
-        ? `<button class="danger small" ${s.disparada ? "disabled" : ""} onclick="dispararCrisis('${s.sala_id}','${s.nombre.replace(/'/g, "")}')">🚨 Disparar</button>`
-        : "";
-
-      // El cronometro de 8 minutos de la pantalla completa del equipo se
-      // arranca aparte del disparo, cuando el admin decida que arranca el
-      // tiempo real (ver caso_critico leido en vivo). Una vez arrancado se
-      // puede pausar/reanudar (por ejemplo si hay un problema tecnico) o
-      // finalizar antes de tiempo (si el equipo ya terminó de responder).
-      let cronometroHtml = "";
-      if (puedeDisparar && s.disparada) {
-        if (!s.cronometro_iniciado_en) {
-          cronometroHtml = `<button class="secondary small" onclick="iniciarCronometroCrisis('${s.sala_id}','${s.nombre.replace(/'/g, "")}')">⏱️ Iniciar cronómetro (8 min)</button>`;
-        } else if (s.cronometro_finalizado_en) {
-          cronometroHtml = `<span class="badge cerrado">⏹️ Cronómetro finalizado</span>`;
-        } else if (s.cronometro_pausado_en) {
-          cronometroHtml = `
-            <span class="badge pendiente" id="cronometro-badge-${s.sala_id}">⏸️ ${formatCronometroRestante(s)} (en pausa)</span>
-            <button class="secondary small" onclick="reanudarCronometroCrisis('${s.sala_id}','${s.nombre.replace(/'/g, "")}')">▶️ Reanudar</button>
-            <button class="secondary small" onclick="finalizarCronometroCrisis('${s.sala_id}','${s.nombre.replace(/'/g, "")}')">⏹️ Finalizar</button>`;
-        } else {
-          cronometroHtml = `
-            <span class="badge cerrado" id="cronometro-badge-${s.sala_id}">⏱️ ${formatCronometroRestante(s)}</span>
-            <button class="secondary small" onclick="pausarCronometroCrisis('${s.sala_id}','${s.nombre.replace(/'/g, "")}')">⏸️ Pausar</button>
-            <button class="secondary small" onclick="finalizarCronometroCrisis('${s.sala_id}','${s.nombre.replace(/'/g, "")}')">⏹️ Finalizar</button>`;
-        }
-      }
-
-      return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
-        <strong style="min-width:260px">${s.nombre}</strong> ${badge} ${boton} ${cronometroHtml}
-      </div>`;
-    })
-    .join("");
-
-  iniciarTicksCronometrosAdmin(overview.salas_crisis);
-}
-
-// Calcula el texto del cronometro para una sala de crisis, respetando si
-// esta corriendo, en pausa (congelado en el valor que tenia al pausarse) o
-// ya finalizado (siempre 00:00).
-function formatCronometroRestante(s) {
-  if (s.cronometro_finalizado_en) return "00:00 (finalizado)";
-  const hastaMs = s.cronometro_pausado_en ? new Date(s.cronometro_pausado_en).getTime() : Date.now();
-  const iniciado = new Date(s.cronometro_iniciado_en).getTime();
-  const restanteMs = Math.max(0, iniciado + (s.duracion_segundos || 480) * 1000 - hastaMs);
-  const totalSeg = Math.ceil(restanteMs / 1000);
-  const mm = String(Math.floor(totalSeg / 60)).padStart(2, "0");
-  const ss = String(totalSeg % 60).padStart(2, "0");
-  return totalSeg > 0 ? `${mm}:${ss} restantes` : "Tiempo agotado";
-}
-
-let cronometrosAdminInterval = null;
-function iniciarTicksCronometrosAdmin(salasCrisis) {
-  clearInterval(cronometrosAdminInterval);
-  // Solo tiquea mientras esta corriendo de verdad: en pausa o finalizado el
-  // valor queda fijo (ya se renderizo arriba con el texto correcto).
-  const activas = (salasCrisis || []).filter((s) => s.cronometro_iniciado_en && !s.cronometro_pausado_en && !s.cronometro_finalizado_en);
-  if (!activas.length) return;
-  cronometrosAdminInterval = setInterval(() => {
-    activas.forEach((s) => {
-      const el = $(`cronometro-badge-${s.sala_id}`);
-      if (el) el.textContent = `⏱️ ${formatCronometroRestante(s)}`;
-    });
-  }, 1000);
-}
-
-async function dispararCrisis(salaId, nombre) {
-  if (!confirm(`¿Confirmás disparar "${nombre}" para las 5 provincias ahora mismo?`)) return;
-  try {
-    await api("/api/admin/crisis/disparar", { method: "POST", body: JSON.stringify({ sala_id: salaId }) });
-    showMsg(`"${nombre}" disparada para las 5 provincias.`, "ok");
-    cargarTodo();
-  } catch (e) {
-    showMsg(e.message, "error");
-  }
-}
-
-async function iniciarCronometroCrisis(salaId, nombre) {
-  if (
-    !confirm(
-      `¿Arrancar ahora el cronómetro de 8 minutos de "${nombre}"? Va a aparecer en la pantalla completa de cada equipo, que no pueden cerrar.`
-    )
-  )
+  if (!puedeDisparar) {
+    $("rotacion-control-area").innerHTML = `<p class="small-muted">Solo el admin puede disparar salas para todas las provincias a la vez.</p>`;
     return;
+  }
+  const botones = [0, 1, 2, 3, 4]
+    .map((i) => `<button onclick="dispararRotacion(${i})">🚀 Disparar Sala ${i + 1} (todas las provincias)</button>`)
+    .join("");
+  $("rotacion-control-area").innerHTML = botones;
+}
+
+async function dispararRotacion(ordenIndex) {
+  if (!confirm(`¿Iniciar la Sala ${ordenIndex + 1} para las 5 provincias al mismo tiempo?`)) return;
   try {
-    await api(`/api/admin/crisis/${salaId}/iniciar-cronometro`, { method: "POST" });
-    showMsg(`Cronómetro de "${nombre}" iniciado.`, "ok");
+    const r = await api(`/api/admin/rotacion/${ordenIndex}/iniciar-todos`, { method: "POST" });
+    const saltadosTxt = r.saltados.length ? ` (${r.saltados.length} ya estaban iniciadas o cerradas)` : "";
+    showMsg(`Sala ${ordenIndex + 1} iniciada para ${r.iniciados} provincia(s)${saltadosTxt}.`, "ok");
     cargarTodo();
   } catch (e) {
     showMsg(e.message, "error");
   }
 }
 
-async function pausarCronometroCrisis(salaId, nombre) {
-  try {
-    await api(`/api/admin/crisis/${salaId}/pausar-cronometro`, { method: "POST" });
-    showMsg(`Cronómetro de "${nombre}" pausado.`, "ok");
-    cargarTodo();
-  } catch (e) {
-    showMsg(e.message, "error");
-  }
-}
-
-async function reanudarCronometroCrisis(salaId, nombre) {
-  try {
-    await api(`/api/admin/crisis/${salaId}/reanudar-cronometro`, { method: "POST" });
-    showMsg(`Cronómetro de "${nombre}" reanudado.`, "ok");
-    cargarTodo();
-  } catch (e) {
-    showMsg(e.message, "error");
-  }
-}
-
-async function finalizarCronometroCrisis(salaId, nombre) {
-  if (!confirm(`¿Finalizar ahora el cronómetro de "${nombre}"? Va a quedar en 00:00 en la pantalla de los 5 equipos y no se puede deshacer.`)) return;
-  try {
-    await api(`/api/admin/crisis/${salaId}/finalizar-cronometro`, { method: "POST" });
-    showMsg(`Cronómetro de "${nombre}" finalizado.`, "ok");
-    cargarTodo();
-  } catch (e) {
-    showMsg(e.message, "error");
-  }
-}
-
-// ---------------- TRANSMISIÓN EN VIVO DE LA SALA DE CRISIS ----------------
-// Una única señal (una cámara, un orador a la vez) que se publica/corta a
-// mano desde acá: no hay detección automática de "quién está hablando".
 function renderTransmisionControl(overview) {
   const t = overview.transmision || { activa: false, url: null };
   const input = $("in-transmision-url");
-  // Solo se precarga el input si está vacío, para no pisar lo que el admin
-  // esté escribiendo en ese momento (por ejemplo, el próximo link a pegar).
   if (input && !input.value && t.url) input.value = t.url;
 
   $("transmision-estado-msg").innerHTML = t.activa
@@ -409,7 +401,6 @@ $("btn-transmision-cortar").addEventListener("click", cortarTransmision);
 
 function renderOverview(overview) {
   const cont = $("equipos-overview");
-  const esFacilitador = session.usuario.staff_rol === "facilitador";
 
   cont.innerHTML = overview.equipos
     .map((eq) => {
@@ -480,56 +471,6 @@ async function cerrarPasoModerado(pasoId) {
   }
 }
 
-function renderCrisisEval(overview) {
-  const puedeEvaluar = session.usuario.staff_rol === "admin" || session.usuario.staff_rol === "jurado";
-  const salasDisparadas = overview.salas_crisis.filter((s) => s.disparada);
-  if (!salasDisparadas.length) {
-    $("crisis-eval-area").innerHTML = `<p class="small-muted">Se dispara una sala de crisis para cargar evaluaciones.</p>`;
-    return;
-  }
-  if (!puedeEvaluar) {
-    $("crisis-eval-area").innerHTML = `<p class="small-muted">Solo el jurado o el admin pueden cargar esta evaluación.</p>`;
-    return;
-  }
-  $("crisis-eval-area").innerHTML = salasDisparadas
-    .map((sala) => {
-      const filas = overview.equipos
-        .map((eq) => {
-          const evalRow = eq.evaluaciones_crisis.find((c) => c.sala_slug === sala.slug);
-          const ev = evalRow?.evaluacion || {};
-          const yaEvaluado = !!evalRow?.evaluacion;
-          return `
-          <h4>${eq.equipo.codigo} — ${eq.equipo.nombre}</h4>
-          <form class="grid" style="grid-template-columns: repeat(5, 1fr); align-items:end" onsubmit="return guardarEvalCrisis(event, '${eq.equipo.id}', '${sala.sala_id}')">
-            <div><label>Claridad (1-5)</label><input type="number" min="1" max="5" name="claridad" value="${ev.claridad ?? ""}" ${yaEvaluado ? "disabled" : ""} required /></div>
-            <div><label>Manejo incertidumbre</label><input type="number" min="1" max="5" name="manejo_incertidumbre" value="${ev.manejo_incertidumbre ?? ""}" ${yaEvaluado ? "disabled" : ""} required /></div>
-            <div><label>Coherencia</label><input type="number" min="1" max="5" name="coherencia" value="${ev.coherencia ?? ""}" ${yaEvaluado ? "disabled" : ""} required /></div>
-            <div><label>Control bajo presión</label><input type="number" min="1" max="5" name="control_presion" value="${ev.control_presion ?? ""}" ${yaEvaluado ? "disabled" : ""} required /></div>
-            <div>${yaEvaluado ? '<span class="badge cerrado">Evaluada</span>' : '<button type="submit" class="small">Guardar</button>'}</div>
-            <div style="grid-column: 1 / -1"><label>Comentario</label><input name="comentario" value="${ev.comentario ?? ""}" ${yaEvaluado ? "disabled" : ""} /></div>
-          </form>`;
-        })
-        .join("<hr/>");
-      return `<h3>${sala.nombre}</h3>${filas}`;
-    })
-    .join("<hr/>");
-}
-
-async function guardarEvalCrisis(ev, equipoId, salaId) {
-  ev.preventDefault();
-  const fd = new FormData(ev.target);
-  const body = { equipo_id: equipoId, sala_id: salaId };
-  for (const [k, v] of fd.entries()) body[k] = ["claridad", "manejo_incertidumbre", "coherencia", "control_presion"].includes(k) ? Number(v) : v;
-  try {
-    const r = await api("/api/admin/crisis/evaluar", { method: "POST", body: JSON.stringify(body) });
-    showMsg(`Evaluación guardada. Impacto en Imagen Positiva: ${r.puntos > 0 ? "+" : ""}${r.puntos}.`, "ok");
-    cargarTodo();
-  } catch (e) {
-    showMsg(e.message, "error");
-  }
-  return false;
-}
-
 function fillEquipoSelect(equipos) {
   const sel = $("ajuste-equipo");
   if (sel.dataset.filled === "1") return;
@@ -569,6 +510,7 @@ function renderLeaderboard(tabla) {
         <td>${row.codigo} — ${row.nombre}</td>
         <td><strong>${row.ejes.imagen_positiva}</strong></td>
         <td>${row.ejes.intencion_voto}</td>
+        <td>${row.desempeno == null ? "—" : row.desempeno}</td>
         <td>${row.ejes.gobernabilidad}</td>
         <td>${row.ejes.salud_fiscal}</td>
         <td>${row.ejes.orden_publico}</td>
