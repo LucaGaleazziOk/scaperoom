@@ -6,13 +6,16 @@ const { emitAdmin, emitEquipo, emitPublico, emitGlobal } = require("../realtime"
 const {
   derivarCartelito,
   construirLeaderboard,
+  construirLeaderboardStaff,
   construirEstadoEscrutinio,
   getPasosDeEquipo,
   getProblemaParaEquipo,
   aplicarEfectos,
-  calcularPuntosCrisis,
   normalizarUrlTransmision,
   getEstadoTransmision,
+  CRISIS_TIPOS,
+  getEvaluacionesTematicas,
+  getEvaluacionesCrisis,
 } = require("../logic");
 const { EJES } = require("../ejes");
 const { resetAndReseed } = require("../seed");
@@ -28,8 +31,6 @@ router.use(requireAuth);
 // -----------------------------------------------------------------------
 router.get("/overview", requireStaff("admin", "facilitador", "jurado"), (req, res) => {
   const equipos = db.prepare("SELECT * FROM equipo ORDER BY carpeta_numero ASC").all();
-  const salasCrisis = db.prepare("SELECT * FROM sala WHERE tipo = 'crisis' ORDER BY orden_crisis ASC").all();
-  const crisisEstados = salasCrisis.map((sala) => db.prepare("SELECT * FROM crisis_estado WHERE sala_id = ?").get(sala.id));
 
   const data = equipos.map((equipo) => {
     const pasos = getPasosDeEquipo(equipo.id).map((p) => {
@@ -62,37 +63,98 @@ router.get("/overview", requireStaff("admin", "facilitador", "jurado"), (req, re
          WHERE u.equipo_id = ? ORDER BY r.orden ASC`
       )
       .all(equipo.id);
-    const evaluacionesCrisis = salasCrisis.map((sala) => ({
-      sala_slug: sala.slug,
-      sala_nombre: sala.nombre,
-      evaluacion: db.prepare("SELECT * FROM evaluacion_crisis WHERE equipo_id = ? AND sala_id = ?").get(equipo.id, sala.id) || null,
-    }));
+
+    const evalTematicas = {};
+    for (const t of getEvaluacionesTematicas(equipo.id)) evalTematicas[t.sala_slug] = t.puntaje;
+    const evalCrisis = {};
+    for (const c of getEvaluacionesCrisis(equipo.id)) {
+      evalCrisis[c.crisis_slug] = { coherencia: c.coherencia, oratoria: c.oratoria, manejo_nervios: c.manejo_nervios };
+    }
 
     return {
       equipo: { id: equipo.id, codigo: equipo.codigo, nombre: equipo.nombre, carpeta_numero: equipo.carpeta_numero },
       jugadores,
       pasos,
-      evaluaciones_crisis: evaluacionesCrisis,
+      evaluaciones_tematicas: evalTematicas,
+      evaluaciones_crisis: evalCrisis,
     };
   });
 
   res.json({
     equipos: data,
     ejes: EJES,
-    salas_crisis: salasCrisis.map((s, i) => ({
-      sala_id: s.id,
-      slug: s.slug,
-      nombre: s.nombre,
-      caso_critico: s.caso_critico,
-      disparada: !!crisisEstados[i]?.disparada,
-      cronometro_iniciado_en: crisisEstados[i]?.cronometro_iniciado_en || null,
-      duracion_segundos: crisisEstados[i]?.duracion_segundos || 480,
-      cronometro_pausado_en: crisisEstados[i]?.cronometro_pausado_en || null,
-      cronometro_finalizado_en: crisisEstados[i]?.cronometro_finalizado_en || null,
-    })),
-    leaderboard: construirLeaderboard(),
+    crisis_tipos: CRISIS_TIPOS,
+    leaderboard: construirLeaderboardStaff(),
     transmision: getEstadoTransmision(),
   });
+});
+
+// -----------------------------------------------------------------------
+// POST /api/admin/evaluacion/tematica  (admin, o el facilitador asignado a
+// esa sala) — carga/actualiza el puntaje de desempeño (1 a 5) de un equipo
+// en una sala temática puntual.
+// -----------------------------------------------------------------------
+router.post("/evaluacion/tematica", requireStaff("admin", "facilitador"), (req, res) => {
+  const { equipo_id, sala_slug, puntaje, comentario } = req.body || {};
+  const p = Number(puntaje);
+  if (!equipo_id || !sala_slug || !Number.isInteger(p) || p < 1 || p > 5) {
+    return res.status(400).json({ error: "Faltan datos: equipo_id, sala_slug y puntaje (entero 1 a 5)." });
+  }
+  const sala = db.prepare("SELECT * FROM sala WHERE slug = ?").get(sala_slug);
+  if (!sala) return res.status(404).json({ error: "Sala temática no encontrada." });
+  if (req.user.staff_rol === "facilitador" && req.user.sala_asignada_id !== sala.id) {
+    return res.status(403).json({ error: "No sos el facilitador asignado a esta sala." });
+  }
+  db.prepare(
+    `INSERT INTO evaluacion_tematica (id, equipo_id, sala_id, puntaje, comentario, staff_id)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(equipo_id, sala_id) DO UPDATE SET puntaje = excluded.puntaje, comentario = excluded.comentario, staff_id = excluded.staff_id`
+  ).run(uuid(), equipo_id, sala.id, p, comentario || null, req.user.sub);
+
+  const leaderboard = construirLeaderboardStaff();
+  emitAdmin("evaluacion:actualizada", { tipo: "tematica", equipo_id, sala_slug });
+  res.json({ ok: true, leaderboard });
+});
+
+// -----------------------------------------------------------------------
+// POST /api/admin/evaluacion/crisis  (admin o jurado) — carga/actualiza los
+// 3 criterios (coherencia, oratoria, manejo de los nervios; 1 a 5 cada uno)
+// de un equipo en una de las 3 crisis presenciales.
+// -----------------------------------------------------------------------
+router.post("/evaluacion/crisis", requireStaff("admin", "jurado"), (req, res) => {
+  const { equipo_id, crisis_slug, coherencia, oratoria, manejo_nervios, comentario } = req.body || {};
+  if (!equipo_id || !CRISIS_TIPOS.some((c) => c.slug === crisis_slug)) {
+    return res.status(400).json({ error: "Faltan datos: equipo_id y crisis_slug válido." });
+  }
+  const criterios = { coherencia, oratoria, manejo_nervios };
+  for (const [k, v] of Object.entries(criterios)) {
+    if (v == null || v === "") continue;
+    const n = Number(v);
+    if (!Number.isInteger(n) || n < 1 || n > 5) {
+      return res.status(400).json({ error: `${k} debe ser un entero de 1 a 5.` });
+    }
+    criterios[k] = n;
+  }
+  db.prepare(
+    `INSERT INTO evaluacion_crisis (id, equipo_id, crisis_slug, coherencia, oratoria, manejo_nervios, comentario, jurado_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(equipo_id, crisis_slug) DO UPDATE SET
+       coherencia = excluded.coherencia, oratoria = excluded.oratoria, manejo_nervios = excluded.manejo_nervios,
+       comentario = excluded.comentario, jurado_id = excluded.jurado_id`
+  ).run(
+    uuid(),
+    equipo_id,
+    crisis_slug,
+    criterios.coherencia ?? null,
+    criterios.oratoria ?? null,
+    criterios.manejo_nervios ?? null,
+    comentario || null,
+    req.user.sub
+  );
+
+  const leaderboard = construirLeaderboardStaff();
+  emitAdmin("evaluacion:actualizada", { tipo: "crisis", equipo_id, crisis_slug });
+  res.json({ ok: true, leaderboard });
 });
 
 // -----------------------------------------------------------------------
@@ -163,142 +225,51 @@ router.post("/paso/:id/cerrar", requireStaff("admin", "facilitador"), (req, res)
 });
 
 // -----------------------------------------------------------------------
-// POST /api/admin/crisis/disparar  (solo admin) — dispara UNA sala de crisis
-// especifica (body: { sala_id }) para los 5 equipos en simultaneo.
+// POST /api/admin/rotacion/:orden_index/iniciar-todos  (solo admin) —
+// inicia, para las 5 provincias en simultáneo, el paso que cada una tiene
+// en la posición :orden_index de SU PROPIO recorrido (0 = "Sala 1", 1 =
+// "Sala 2", etc.). Como el recorrido de cada provincia está rotado, la
+// posición N puede ser una sala temática distinta para cada una — no
+// importa: lo que se dispara es "la sala que le toca ahora a cada equipo",
+// no una sala temática puntual. Los pasos que ya estén en curso o cerrados
+// se saltean sin error (útil para volver a apretar el botón si algún
+// facilitador ya inició manualmente su sala).
 // -----------------------------------------------------------------------
-router.post("/crisis/disparar", requireStaff("admin"), (req, res) => {
-  const { sala_id } = req.body || {};
-  const sala = db.prepare("SELECT * FROM sala WHERE id = ? AND tipo = 'crisis'").get(sala_id);
-  if (!sala) return res.status(404).json({ error: "Sala de crisis no encontrada." });
+router.post("/rotacion/:orden_index/iniciar-todos", requireStaff("admin"), (req, res) => {
+  const ordenIndex = Number(req.params.orden_index);
+  if (!Number.isInteger(ordenIndex) || ordenIndex < 0) {
+    return res.status(400).json({ error: "Posición de sala inválida." });
+  }
 
-  const crisisEstado = db.prepare("SELECT * FROM crisis_estado WHERE sala_id = ?").get(sala.id);
-  if (crisisEstado?.disparada) return res.status(409).json({ error: "Esa sala de crisis ya fue disparada." });
+  const pasos = db
+    .prepare(
+      `SELECT pr.*, s.slug as sala_slug, s.nombre as sala_nombre
+       FROM paso_recorrido pr JOIN sala s ON s.id = pr.sala_id
+       WHERE pr.orden_index = ?`
+    )
+    .all(ordenIndex);
+
+  if (!pasos.length) return res.status(404).json({ error: "No hay ninguna sala en esa posición del recorrido." });
 
   const now = new Date().toISOString();
-  db.prepare(`UPDATE crisis_estado SET disparada = 1, disparada_en = ? WHERE id = ?`).run(now, crisisEstado.id);
+  let iniciados = 0;
+  const saltados = [];
+  const tx = db.transaction(() => {
+    for (const paso of pasos) {
+      if (paso.estado !== "pendiente") {
+        saltados.push({ equipo_id: paso.equipo_id, sala_nombre: paso.sala_nombre, motivo: paso.estado });
+        continue;
+      }
+      db.prepare(`UPDATE paso_recorrido SET estado = 'en_curso', iniciado_en = ?, facilitador_id = ? WHERE id = ?`)
+        .run(now, req.user.sub, paso.id);
+      iniciados++;
+      emitEquipo(paso.equipo_id, "estado:actualizado", { motivo: "paso_iniciado", sala_slug: paso.sala_slug });
+    }
+  });
+  tx();
 
-  const equipos = db.prepare("SELECT id FROM equipo").all();
-  equipos.forEach((e) =>
-    emitEquipo(e.id, "crisis:iniciada", { sala_id: sala.id, sala_nombre: sala.nombre, mensaje: `Se disparó: ${sala.nombre}` })
-  );
-  emitAdmin("crisis:iniciada", { sala_id: sala.id });
-  emitPublico("crisis:iniciada", { sala_nombre: sala.nombre });
-  res.json({ ok: true });
-});
-
-// -----------------------------------------------------------------------
-// POST /api/admin/crisis/:sala_id/iniciar-cronometro  (solo admin) — arranca
-// de forma remota la cuenta regresiva de 8 minutos que ven los equipos en
-// la pantalla completa de la crisis. Es un paso aparte de "disparar": la
-// sala puede estar disparada (los equipos ya ven la consigna) sin que el
-// cronometro haya arrancado todavia.
-// -----------------------------------------------------------------------
-router.post("/crisis/:sala_id/iniciar-cronometro", requireStaff("admin"), (req, res) => {
-  const sala = db.prepare("SELECT * FROM sala WHERE id = ? AND tipo = 'crisis'").get(req.params.sala_id);
-  if (!sala) return res.status(404).json({ error: "Sala de crisis no encontrada." });
-
-  const crisisEstado = db.prepare("SELECT * FROM crisis_estado WHERE sala_id = ?").get(sala.id);
-  if (!crisisEstado?.disparada) {
-    return res.status(409).json({ error: "Esta sala de crisis todavía no fue disparada." });
-  }
-
-  const now = new Date().toISOString();
-  db.prepare(`UPDATE crisis_estado SET cronometro_iniciado_en = ? WHERE id = ?`).run(now, crisisEstado.id);
-
-  const equipos = db.prepare("SELECT id FROM equipo").all();
-  equipos.forEach((e) =>
-    emitEquipo(e.id, "crisis:cronometro_iniciado", {
-      sala_id: sala.id,
-      iniciado_en: now,
-      duracion_segundos: crisisEstado.duracion_segundos,
-    })
-  );
-  emitAdmin("crisis:cronometro_iniciado", { sala_id: sala.id, iniciado_en: now });
-  res.json({ ok: true, iniciado_en: now });
-});
-
-// -----------------------------------------------------------------------
-// POST /api/admin/crisis/:sala_id/pausar-cronometro  (solo admin) — congela
-// la cuenta regresiva de 8 minutos en el valor que tenga en ese instante,
-// en las pantallas de los 5 equipos, hasta que se reanude.
-// -----------------------------------------------------------------------
-router.post("/crisis/:sala_id/pausar-cronometro", requireStaff("admin"), (req, res) => {
-  const sala = db.prepare("SELECT * FROM sala WHERE id = ? AND tipo = 'crisis'").get(req.params.sala_id);
-  if (!sala) return res.status(404).json({ error: "Sala de crisis no encontrada." });
-
-  const crisisEstado = db.prepare("SELECT * FROM crisis_estado WHERE sala_id = ?").get(sala.id);
-  if (!crisisEstado?.cronometro_iniciado_en) {
-    return res.status(409).json({ error: "El cronómetro todavía no fue iniciado." });
-  }
-  if (crisisEstado.cronometro_finalizado_en) {
-    return res.status(409).json({ error: "El cronómetro ya fue finalizado." });
-  }
-  if (crisisEstado.cronometro_pausado_en) {
-    return res.status(409).json({ error: "El cronómetro ya está en pausa." });
-  }
-
-  const now = new Date().toISOString();
-  db.prepare(`UPDATE crisis_estado SET cronometro_pausado_en = ? WHERE id = ?`).run(now, crisisEstado.id);
-
-  const equipos = db.prepare("SELECT id FROM equipo").all();
-  equipos.forEach((e) => emitEquipo(e.id, "crisis:cronometro_pausado", { sala_id: sala.id, pausado_en: now }));
-  emitAdmin("crisis:cronometro_pausado", { sala_id: sala.id, pausado_en: now });
-  res.json({ ok: true, pausado_en: now });
-});
-
-// -----------------------------------------------------------------------
-// POST /api/admin/crisis/:sala_id/reanudar-cronometro  (solo admin) — saca
-// de pausa el cronómetro, corriendo el instante de inicio hacia adelante
-// exactamente lo que duró la pausa (asi el tiempo restante no cambia).
-// -----------------------------------------------------------------------
-router.post("/crisis/:sala_id/reanudar-cronometro", requireStaff("admin"), (req, res) => {
-  const sala = db.prepare("SELECT * FROM sala WHERE id = ? AND tipo = 'crisis'").get(req.params.sala_id);
-  if (!sala) return res.status(404).json({ error: "Sala de crisis no encontrada." });
-
-  const crisisEstado = db.prepare("SELECT * FROM crisis_estado WHERE sala_id = ?").get(sala.id);
-  if (!crisisEstado?.cronometro_pausado_en) {
-    return res.status(409).json({ error: "El cronómetro no está en pausa." });
-  }
-
-  const pausadoMs = Date.now() - new Date(crisisEstado.cronometro_pausado_en).getTime();
-  const nuevoInicio = new Date(new Date(crisisEstado.cronometro_iniciado_en).getTime() + Math.max(0, pausadoMs)).toISOString();
-  db.prepare(`UPDATE crisis_estado SET cronometro_iniciado_en = ?, cronometro_pausado_en = NULL WHERE id = ?`)
-    .run(nuevoInicio, crisisEstado.id);
-
-  const equipos = db.prepare("SELECT id FROM equipo").all();
-  equipos.forEach((e) =>
-    emitEquipo(e.id, "crisis:cronometro_reanudado", { sala_id: sala.id, iniciado_en: nuevoInicio, duracion_segundos: crisisEstado.duracion_segundos })
-  );
-  emitAdmin("crisis:cronometro_reanudado", { sala_id: sala.id, iniciado_en: nuevoInicio });
-  res.json({ ok: true, iniciado_en: nuevoInicio });
-});
-
-// -----------------------------------------------------------------------
-// POST /api/admin/crisis/:sala_id/finalizar-cronometro  (solo admin) —
-// corta el cronómetro manualmente antes de tiempo (por ejemplo si el
-// equipo ya terminó de responder). Queda fijo en 00:00 para siempre; la
-// evaluacion del jurado sigue siendo un paso aparte.
-// -----------------------------------------------------------------------
-router.post("/crisis/:sala_id/finalizar-cronometro", requireStaff("admin"), (req, res) => {
-  const sala = db.prepare("SELECT * FROM sala WHERE id = ? AND tipo = 'crisis'").get(req.params.sala_id);
-  if (!sala) return res.status(404).json({ error: "Sala de crisis no encontrada." });
-
-  const crisisEstado = db.prepare("SELECT * FROM crisis_estado WHERE sala_id = ?").get(sala.id);
-  if (!crisisEstado?.cronometro_iniciado_en) {
-    return res.status(409).json({ error: "El cronómetro todavía no fue iniciado." });
-  }
-  if (crisisEstado.cronometro_finalizado_en) {
-    return res.status(409).json({ error: "El cronómetro ya estaba finalizado." });
-  }
-
-  const now = new Date().toISOString();
-  db.prepare(`UPDATE crisis_estado SET cronometro_finalizado_en = ?, cronometro_pausado_en = NULL WHERE id = ?`)
-    .run(now, crisisEstado.id);
-
-  const equipos = db.prepare("SELECT id FROM equipo").all();
-  equipos.forEach((e) => emitEquipo(e.id, "crisis:cronometro_finalizado", { sala_id: sala.id, finalizado_en: now }));
-  emitAdmin("crisis:cronometro_finalizado", { sala_id: sala.id, finalizado_en: now });
-  res.json({ ok: true, finalizado_en: now });
+  emitAdmin("rotacion:iniciada_todos", { orden_index: ordenIndex, iniciados, saltados });
+  res.json({ ok: true, iniciados, saltados });
 });
 
 // -----------------------------------------------------------------------
@@ -343,42 +314,6 @@ router.post("/transmision/cortar", requireStaff("admin"), (req, res) => {
   res.json({ ok: true, ...payload });
 });
 
-// POST /api/admin/crisis/evaluar  (solo jurado o admin) — body: { equipo_id, sala_id, claridad, manejo_incertidumbre, coherencia, control_presion, comentario }
-router.post("/crisis/evaluar", requireStaff("admin", "jurado"), (req, res) => {
-  const { equipo_id, sala_id, claridad, manejo_incertidumbre, coherencia, control_presion, comentario } = req.body || {};
-  if (!equipo_id || !sala_id) return res.status(400).json({ error: "Faltan equipo_id y sala_id." });
-  const sala = db.prepare("SELECT * FROM sala WHERE id = ? AND tipo = 'crisis'").get(sala_id);
-  if (!sala) return res.status(404).json({ error: "Sala de crisis no encontrada." });
-
-  const yaEvaluado = db.prepare("SELECT * FROM evaluacion_crisis WHERE equipo_id = ? AND sala_id = ?").get(equipo_id, sala_id);
-  if (yaEvaluado) return res.status(409).json({ error: "Esta provincia ya fue evaluada en esta sala de crisis." });
-
-  const evaluacion = { claridad, manejo_incertidumbre, coherencia, control_presion };
-  const puntos = calcularPuntosCrisis(evaluacion);
-
-  const tx = db.transaction(() => {
-    db.prepare(
-      `INSERT INTO evaluacion_crisis (id, equipo_id, sala_id, claridad, manejo_incertidumbre, coherencia, control_presion, comentario, jurado_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(uuid(), equipo_id, sala_id, claridad, manejo_incertidumbre, coherencia, control_presion, comentario || "", req.user.sub);
-
-    const efectos = { imagen_positiva: puntos };
-    if (sala.slug === "crisis_seguridad") efectos.orden_publico = Math.round(puntos / 2);
-    if (sala.slug === "crisis_fiscal") efectos.salud_fiscal = Math.round(puntos / 2);
-    aplicarEfectos(equipo_id, efectos);
-  });
-  tx();
-
-  const leaderboard = construirLeaderboard();
-  // El equipo evaluado necesita enterarse para que se cierre solo la
-  // pantalla completa no cerrable de la sala de crisis (ver crisis-overlay
-  // en equipo.js): sin este evento quedaba esperando el próximo refresco.
-  emitEquipo(equipo_id, "crisis:evaluada", { sala_id, puntos });
-  emitAdmin("crisis:evaluada", { equipo_id, sala_id, puntos });
-  emitPublico("leaderboard:actualizado", leaderboard);
-  res.json({ ok: true, puntos, leaderboard });
-});
-
 // -----------------------------------------------------------------------
 // POST /api/admin/puntaje/ajustar  (solo admin) — ajuste manual de un eje en vivo
 // -----------------------------------------------------------------------
@@ -402,7 +337,7 @@ router.post("/puntaje/ajustar", requireStaff("admin"), (req, res) => {
 
 // GET /api/admin/leaderboard
 router.get("/leaderboard", requireStaff("admin", "facilitador", "jurado"), (req, res) => {
-  res.json(construirLeaderboard());
+  res.json(construirLeaderboardStaff());
 });
 
 // -----------------------------------------------------------------------
@@ -410,8 +345,8 @@ router.get("/leaderboard", requireStaff("admin", "facilitador", "jurado"), (req,
 // provincia un % de "votos" final (no se deriva automaticamente de Imagen
 // Positiva) y lo publican cuando quieran. El panel publico y las miniaturas
 // de equipo dejan de mostrar el tablero en vivo apenas se cierran todas las
-// salas (tematicas y de crisis) y esperan a esta publicacion para revelar
-// el resultado con la animacion de conteo.
+// salas tematicas y esperan a esta publicacion para revelar el resultado
+// con la animacion de conteo.
 // -----------------------------------------------------------------------
 
 // GET /api/admin/escrutinio  (solo admin) — trae el borrador actual + estado
@@ -443,11 +378,11 @@ router.post("/escrutinio/guardar", requireStaff("admin"), (req, res) => {
 
 // POST /api/admin/escrutinio/publicar  (solo admin) — revela el resultado
 // final en el panel publico y en las miniaturas de equipo. Requiere que
-// todas las salas (tematicas + crisis disparadas) esten cerradas/evaluadas.
+// todas las salas tematicas esten cerradas.
 router.post("/escrutinio/publicar", requireStaff("admin"), (req, res) => {
   const estado = construirEstadoEscrutinio();
   if (!estado.todo_cerrado) {
-    return res.status(409).json({ error: "Todavía hay salas temáticas o de crisis sin cerrar." });
+    return res.status(409).json({ error: "Todavía hay salas temáticas sin cerrar." });
   }
   const jornada = db.prepare("SELECT * FROM jornada ORDER BY creado_en DESC LIMIT 1").get();
   if (!jornada) return res.status(404).json({ error: "No hay jornada activa." });
@@ -482,9 +417,9 @@ router.post("/escrutinio/despublicar", requireStaff("admin"), (req, res) => {
 
 // -----------------------------------------------------------------------
 // POST /api/admin/reiniciar  (solo admin) — vuelve TODA la jornada a cero:
-// borra el progreso de las 5 provincias, las decisiones tomadas, las salas
-// de crisis disparadas/evaluadas y los ajustes manuales, y vuelve a sembrar
-// los mismos codigos/PIN de equipo y credenciales de staff de siempre.
+// borra el progreso de las 5 provincias, las decisiones tomadas y los
+// ajustes manuales, y vuelve a sembrar los mismos codigos/PIN de equipo y
+// credenciales de staff de siempre.
 // Como esto genera equipos y usuarios nuevos (otros ids), avisa a TODOS los
 // paneles conectados (equipo, admin, publico) para que se recarguen solos:
 // cualquier sesion vieja (incluida la del admin que ejecuta el reinicio)
