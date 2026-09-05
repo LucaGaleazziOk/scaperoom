@@ -2,7 +2,7 @@ const express = require("express");
 const { v4: uuid } = require("uuid");
 const db = require("../db");
 const { requireAuth, requireStaff } = require("../auth");
-const { emitAdmin, emitEquipo, emitPublico, emitGlobal } = require("../realtime");
+const { emitAdmin, emitEquipo, emitPublico, emitGlobal, estaEquipoConectado } = require("../realtime");
 const {
   derivarCartelito,
   construirLeaderboard,
@@ -73,6 +73,10 @@ router.get("/overview", requireStaff("admin", "facilitador", "jurado"), (req, re
 
     return {
       equipo: { id: equipo.id, codigo: equipo.codigo, nombre: equipo.nombre, carpeta_numero: equipo.carpeta_numero },
+      // Presencia en vivo (no historial): true mientras haya al menos una
+      // pestaña/dispositivo de esta provincia con el panel de equipo
+      // conectado por WebSocket en este momento.
+      conectado: estaEquipoConectado(equipo.id),
       jugadores,
       pasos,
       evaluaciones_tematicas: evalTematicas,
