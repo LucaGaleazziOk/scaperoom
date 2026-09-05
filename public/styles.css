@@ -47,6 +47,7 @@ body {
   min-height: 100vh;
 }
 
+/* marca institucional: franja diagonal dorada, sutil, en el fondo */
 body::before {
   content: "";
   position: fixed;
@@ -96,6 +97,7 @@ header.topbar h1 {
 }
 header.topbar .sub { font-size: 12px; opacity: 0.82; color: var(--gold-light); font-weight: 600; letter-spacing: .01em; }
 
+/* Punto "en vivo" pulsante, opcional, para acompañar el título del topbar. */
 .live-dot {
   display: inline-block;
   width: 8px;
@@ -112,6 +114,7 @@ header.topbar .sub { font-size: 12px; opacity: 0.82; color: var(--gold-light); f
   50% { box-shadow: 0 0 0 6px rgba(51, 209, 122, 0); }
 }
 
+/* Chip destacado para el % electoral sugerido dentro de las tablas. */
 .chip-sugerido {
   display: inline-block;
   padding: 4px 12px;
@@ -226,6 +229,8 @@ button:disabled { background: #c3c9d4; border-bottom-color: #c3c9d4; box-shadow:
 .badge.cartelito-A { background: var(--red); color: #fff; }
 .badge.cartelito-B { background: var(--blue-700); color: #fff; }
 .badge.cartelito-C { background: #5b4a11; color: var(--gold-light); }
+.badge.conectado { background: #e3f7ea; color: #14532d; }
+.badge.desconectado { background: #eef1f6; color: #64748b; }
 
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #e8ebf1; }
@@ -270,6 +275,8 @@ tr:hover td { background: var(--blue-100); }
 .eje-barra .eje-fill { height: 100%; background: var(--blue-800); border-radius: 6px; }
 .eje-barra.principal .eje-fill { background: var(--gold); }
 
+/* Cronometro fijo de la sala tematica en curso: se mantiene anclado a la
+   esquina de la pantalla aunque se scrollee el resto del panel. */
 .timer-fijo {
   position: fixed;
   bottom: 22px;
@@ -307,6 +314,7 @@ tr:hover td { background: var(--blue-100); }
 .timer-fijo.timer-urgente #timer-fijo-valor { color: #ff8b7a; }
 .timer-fijo.timer-agotado #timer-fijo-valor { color: var(--red); }
 
+/* Toast que avisa que arranca el cronometro de una sala tematica */
 .toast-alerta {
   position: fixed;
   top: 18px;
@@ -347,10 +355,14 @@ tr:hover td { background: var(--blue-100); }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(240, 179, 35, 0.4); border-radius: 8px; }
 
+/* ---------------------------------------------------------------------
+   Transmisión en vivo de la sala de crisis: contenedor responsive 16:9
+   reutilizado en el panel de equipo y en la pantalla pública.
+   --------------------------------------------------------------------- */
 .transmision-embed-wrap {
   position: relative;
   width: 100%;
-  padding-top: 56.25%;
+  padding-top: 56.25%; /* 16:9 */
   height: 0;
   overflow: hidden;
   border-radius: 10px;
@@ -366,6 +378,9 @@ tr:hover td { background: var(--blue-100); }
   border: 0;
 }
 
+/* ---------------------------------------------------------------------
+   Pantalla de inicio: 3 accesos grandes centrados (equipos / admin / general)
+   --------------------------------------------------------------------- */
 .home-wrap {
   min-height: calc(100vh - 76px);
   display: flex;

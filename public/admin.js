@@ -92,9 +92,13 @@ function conectarSocket() {
     "escrutinio:despublicado",
     "transmision:actualizada",
     "evaluacion:actualizada",
+    "equipo:conexion_cambio",
   ].forEach((ev) => {
     socket.on(ev, () => cargarTodo());
   });
+  // Tras un reinicio total (ver btn-reset-todo) los equipos/usuarios son
+  // nuevos: la sesion actual (incluida la de quien disparo el reinicio) ya
+  // no es valida, asi que la unica salida limpia es recargar la pagina.
   socket.on("app:reset", () => {
     showMsg("La jornada se reinició. Recargando…", "ok");
     setTimeout(() => location.reload(), 1000);
@@ -135,6 +139,7 @@ async function cargarTodo() {
   cargarEscrutinio();
 }
 
+// ---------------- EVALUACIÓN DE DESEMPEÑO (1 a 5) ----------------
 function fillEvaluacionEquipoSelect(equipos) {
   const sel = $("evaluacion-equipo");
   if (sel.dataset.filled === "1") return;
@@ -197,7 +202,7 @@ function renderEvaluacionForm() {
       const valor = sel.value ? Number(sel.value) : null;
       try {
         if (tipo === "tematica") {
-          if (valor == null) return;
+          if (valor == null) return; // no hay endpoint para "borrar" una nota; solo se puede cargar 1-5
           await api("/api/admin/evaluacion/tematica", {
             method: "POST",
             body: JSON.stringify({ equipo_id: equipoId, sala_slug: a, puntaje: valor }),
@@ -233,6 +238,7 @@ function renderSugerido(tabla) {
     .join("");
 }
 
+// ---------------- ESCRUTINIO FINAL ----------------
 async function cargarEscrutinio() {
   if (session.usuario.staff_rol !== "admin") {
     $("escrutinio-estado-msg").textContent = "Solo el admin puede cargar y publicar el resultado final.";
@@ -339,6 +345,12 @@ function renderEscrutinio(data) {
   }
 }
 
+// ---------------- DISPARO MASIVO POR POSICIÓN DE SALA (rotación) ----------------
+// Un botón por posición (Sala 1 a Sala 5): inicia, para las 5 provincias a
+// la vez, la sala que le toca a cada una en esa posición de SU recorrido
+// (que está rotado, así que puede ser una sala temática distinta por
+// provincia). El control individual por provincia sigue disponible en la
+// tabla de "Estado de los equipos" más abajo.
 function renderRotacionControl(overview) {
   const puedeDisparar = session.usuario.staff_rol === "admin";
   if (!puedeDisparar) {
@@ -363,9 +375,14 @@ async function dispararRotacion(ordenIndex) {
   }
 }
 
+// ---------------- TRANSMISIÓN EN VIVO DE LA SALA DE CRISIS ----------------
+// Una única señal (una cámara, un orador a la vez) que se publica/corta a
+// mano desde acá: no hay detección automática de "quién está hablando".
 function renderTransmisionControl(overview) {
   const t = overview.transmision || { activa: false, url: null };
   const input = $("in-transmision-url");
+  // Solo se precarga el input si está vacío, para no pisar lo que el admin
+  // esté escribiendo en ese momento (por ejemplo, el próximo link a pegar).
   if (input && !input.value && t.url) input.value = t.url;
 
   $("transmision-estado-msg").innerHTML = t.activa
@@ -401,8 +418,14 @@ $("btn-transmision-cortar").addEventListener("click", cortarTransmision);
 
 function renderOverview(overview) {
   const cont = $("equipos-overview");
+  const esFacilitador = session.usuario.staff_rol === "facilitador";
 
-  cont.innerHTML = overview.equipos
+  const conectadas = overview.equipos.filter((eq) => eq.conectado).length;
+  const resumenConexion = `<p class="small-muted" style="margin-bottom:14px">
+    <strong>${conectadas} / ${overview.equipos.length}</strong> provincias con el panel de equipo conectado ahora mismo.
+  </p>`;
+
+  cont.innerHTML = resumenConexion + overview.equipos
     .map((eq) => {
       const filas = eq.pasos
         .sort((a, b) => a.orden_index - b.orden_index)
@@ -429,9 +452,12 @@ function renderOverview(overview) {
         .join("");
 
       const jugadores = eq.jugadores.map((j) => `${j.rol_nombre}: ${j.nombre}`).join(" · ") || "acceso aún no utilizado";
+      const badgeConexion = eq.conectado
+        ? `<span class="badge conectado">🟢 conectada</span>`
+        : `<span class="badge desconectado">⚪ sin conectar</span>`;
 
       return `
-        <h3>${eq.equipo.codigo} — ${eq.equipo.nombre}</h3>
+        <h3>${eq.equipo.codigo} — ${eq.equipo.nombre} ${badgeConexion}</h3>
         <p class="small-muted">${jugadores}</p>
         <table>
           <thead><tr><th>#</th><th>Sala</th><th>Estado</th><th>Cartelito</th><th>Decisión (efectos)</th><th>Acciones</th></tr></thead>
