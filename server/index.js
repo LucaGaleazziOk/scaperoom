@@ -6,7 +6,7 @@ const http = require("http");
 const { Server } = require("socket.io");
 
 const { verifyToken } = require("./auth");
-const { setIo } = require("./realtime");
+const { setIo, marcarEquipoConectado, marcarEquipoDesconectado } = require("./realtime");
 const { run: seed } = require("./seed");
 
 const authRoutes = require("./routes/auth");
@@ -82,6 +82,11 @@ io.on("connection", (socket) => {
     // También se suma a "publico" para recibir en vivo la miniatura de su
     // propio contador en el panel de equipo (mismos datos que ya son públicos).
     socket.join("publico");
+    // Presencia en vivo para el panel de admin: mientras este socket (o
+    // cualquier otra pestaña/dispositivo de la misma provincia) siga
+    // conectado, esa provincia figura como "conectada".
+    marcarEquipoConectado(user.equipo_id);
+    socket.on("disconnect", () => marcarEquipoDesconectado(user.equipo_id));
   }
 });
 

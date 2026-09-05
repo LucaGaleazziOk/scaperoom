@@ -32,4 +32,43 @@ function emitGlobal(event, payload) {
   if (ioInstance) ioInstance.emit(event, payload);
 }
 
-module.exports = { setIo, emitAdmin, emitEquipo, emitPublico, emitTodos, emitGlobal };
+// ---------------------------------------------------------------------
+// Presencia en vivo de los equipos: cuenta cuantos sockets de una misma
+// provincia estan conectados en este momento (puede tener mas de una
+// pestaña/dispositivo abierto a la vez), asi el panel de admin puede
+// mostrar "conectada" mientras el conteo sea mayor a cero. No persiste en
+// disco a proposito: es un estado de "ahora mismo", no un historial.
+// ---------------------------------------------------------------------
+const conteoConexionesPorEquipo = new Map();
+
+function marcarEquipoConectado(equipoId) {
+  const actual = conteoConexionesPorEquipo.get(equipoId) || 0;
+  conteoConexionesPorEquipo.set(equipoId, actual + 1);
+  if (actual === 0) emitAdmin("equipo:conexion_cambio", { equipo_id: equipoId, conectado: true });
+}
+
+function marcarEquipoDesconectado(equipoId) {
+  const actual = conteoConexionesPorEquipo.get(equipoId) || 0;
+  if (actual <= 1) {
+    conteoConexionesPorEquipo.delete(equipoId);
+    emitAdmin("equipo:conexion_cambio", { equipo_id: equipoId, conectado: false });
+  } else {
+    conteoConexionesPorEquipo.set(equipoId, actual - 1);
+  }
+}
+
+function estaEquipoConectado(equipoId) {
+  return (conteoConexionesPorEquipo.get(equipoId) || 0) > 0;
+}
+
+module.exports = {
+  setIo,
+  emitAdmin,
+  emitEquipo,
+  emitPublico,
+  emitTodos,
+  emitGlobal,
+  marcarEquipoConectado,
+  marcarEquipoDesconectado,
+  estaEquipoConectado,
+};
