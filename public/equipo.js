@@ -163,7 +163,6 @@ function render(data) {
   $("equipo-contexto").textContent = data.equipo.contexto_arranque;
   $("equipo-tension").textContent = data.equipo.tension_interna;
   $("equipo-objetivos").innerHTML = data.equipo.objetivos_generales.map((o) => `<li>${o}</li>`).join("");
-  $("objetivo-secreto").textContent = data.mi_rol?.objetivo_secreto || "—";
 
   const pasos = data.pasos;
 
