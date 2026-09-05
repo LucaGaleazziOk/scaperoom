@@ -134,30 +134,66 @@ function calcularDesempeno(equipoId) {
   return clamp(((promedio - 1) / 4) * 100);
 }
 
-// % electoral sugerido: promedio ponderado de los 6 ejes (los 5 de siempre
-// + Desempeño) según PESOS_SUGERIDO. Es solo un tentativo para ayudar al
-// admin a definir el % final del escrutinio (no se aplica solo). Si un eje
-// no tiene valor (típicamente Desempeño, mientras no haya notas cargadas)
-// se excluye del promedio en lugar de contar como 0, redistribuyendo su
-// peso entre el resto.
-function calcularPorcentajeSugerido(ejesFinales, desempeno) {
+// Puntaje ponderado (0-100) de una provincia: promedio de los 6 ejes (los 5
+// de siempre + Desempeño) según PESOS_SUGERIDO. Es un valor absoluto, previo
+// a repartir el 100% entre las 5 provincias (ver construirLeaderboardStaff).
+// Si un eje no tiene valor (típicamente Desempeño, mientras no haya notas
+// cargadas) se excluye del promedio en lugar de contar como 0, redistribuyendo
+// su peso entre el resto.
+function calcularPuntajeSugeridoBruto(ejesFinales, desempeno) {
   const valores = { ...ejesFinales, desempeno };
   const entradas = PESOS_SUGERIDO.filter(([slug]) => valores[slug] != null);
   const sumaPesos = entradas.reduce((acc, [, peso]) => acc + peso, 0);
   if (!sumaPesos) return null;
   const sumaPonderada = entradas.reduce((acc, [slug, peso]) => acc + peso * valores[slug], 0);
-  return Math.round((sumaPonderada / sumaPesos) * 10) / 10;
+  return sumaPonderada / sumaPesos;
 }
 
 // Agrega desempeño + % sugerido a las filas de construirLeaderboard(). Se
 // usa solo en las vistas de staff (nunca en /api/public/leaderboard): son
 // datos internos de organización, no algo que vea el público ni los equipos.
+//
+// El % sugerido NO es el puntaje ponderado de cada provincia en términos
+// absolutos: es la porción que le tocaría del 100% total, en proporción a su
+// puntaje ponderado frente al de las otras 4. Así imita un resultado
+// electoral real (las 5 provincias siempre suman 100%) en vez de dar 5
+// números sueltos que casualmente puedan coincidir entre sí. El redondeo usa
+// el método del "mayor resto" para que, aun redondeando cada fila a 1
+// decimal, la columna siga sumando exactamente 100.0.
 function construirLeaderboardStaff() {
-  return construirLeaderboard().map((row) => {
+  const base = construirLeaderboard().map((row) => {
     const desempeno = calcularDesempeno(row.equipo_id);
-    const porcentaje_sugerido = calcularPorcentajeSugerido(row.ejes, desempeno);
-    return { ...row, desempeno, porcentaje_sugerido };
+    const bruto = calcularPuntajeSugeridoBruto(row.ejes, desempeno);
+    return { ...row, desempeno, _bruto: bruto ?? 0 };
   });
+
+  const sumaBruta = base.reduce((acc, r) => acc + r._bruto, 0);
+
+  if (!sumaBruta) {
+    // Ningún puntaje ponderado disponible todavía: reparte 100% en partes
+    // iguales en vez de dividir por cero.
+    const partesIguales = Math.round((100 / base.length) * 10) / 10;
+    return base.map(({ _bruto, ...row }) => ({ ...row, porcentaje_sugerido: partesIguales }));
+  }
+
+  const crudos = base.map((row) => (row._bruto / sumaBruta) * 100);
+  const pisos = crudos.map((v) => Math.floor(v * 10) / 10);
+  const sumaPisos = Math.round(pisos.reduce((a, b) => a + b, 0) * 10) / 10;
+  const decimasARepartir = Math.round((100 - sumaPisos) * 10);
+
+  const ordenPorResiduo = crudos
+    .map((v, i) => ({ i, residuo: v * 10 - Math.floor(v * 10) }))
+    .sort((a, b) => b.residuo - a.residuo);
+
+  const ajustes = new Array(base.length).fill(0);
+  for (let k = 0; k < decimasARepartir && k < ordenPorResiduo.length; k++) {
+    ajustes[ordenPorResiduo[k].i] += 0.1;
+  }
+
+  return base.map(({ _bruto, ...row }, i) => ({
+    ...row,
+    porcentaje_sugerido: Math.round((pisos[i] + ajustes[i]) * 10) / 10,
+  }));
 }
 
 function construirLeaderboard() {
@@ -266,5 +302,5 @@ module.exports = {
   getEvaluacionesTematicas,
   getEvaluacionesCrisis,
   calcularDesempeno,
-  calcularPorcentajeSugerido,
+  calcularPuntajeSugeridoBruto,
 };
