@@ -73,23 +73,6 @@ function iniciarApp() {
 function conectarSocket() {
   socket = io({ auth: { token: session.token } });
   socket.on("estado:actualizado", cargarEstado);
-  socket.on("crisis:iniciada", (payload) => {
-    showMsg(`🚨 ${payload?.mensaje || "Se disparó una sala de crisis."}`, "ok");
-    cargarEstado();
-  });
-  // El cronometro de 8 minutos de la sala de crisis lo arranca el admin de
-  // forma remota, aparte del disparo: hay que refrescar el estado para que
-  // la pantalla completa empiece a contar.
-  socket.on("crisis:cronometro_iniciado", cargarEstado);
-  // El admin puede pausar/reanudar/finalizar el cronómetro de 8 minutos en
-  // cualquier momento desde el panel de administración.
-  socket.on("crisis:cronometro_pausado", cargarEstado);
-  socket.on("crisis:cronometro_reanudado", cargarEstado);
-  socket.on("crisis:cronometro_finalizado", cargarEstado);
-  // Cuando el jurado evalúa esta sala de crisis para este equipo, hay que
-  // refrescar el estado para que la pantalla completa no cerrable se oculte
-  // sola (ver renderCrisisOverlay: se muestra mientras disparada && !evaluada).
-  socket.on("crisis:evaluada", cargarEstado);
   // La organización publica/corta la transmisión en vivo de quien esté
   // hablando en la sala de crisis en ese momento.
   socket.on("transmision:actualizada", cargarEstado);
@@ -184,23 +167,6 @@ function render(data) {
 
   const pasos = data.pasos;
 
-  // Salas de crisis disparadas y pendientes de jugar/evaluar
-  const crisisDisparadas = (data.crisis || []).filter((c) => c.disparada);
-  if (crisisDisparadas.length) {
-    $("crisis-card").style.display = "block";
-    $("crisis-texto").innerHTML = crisisDisparadas
-      .map(
-        (c) => `
-        <div class="msg ${c.evaluada ? "ok" : "error"}" style="margin-bottom:10px">
-          <strong>${c.nombre}</strong>${c.evaluada ? " — ya evaluada" : " — el jurado la va a evaluar en vivo"}<br/>
-          ${c.caso_critico || ""}
-        </div>`
-      )
-      .join("");
-  } else {
-    $("crisis-card").style.display = "none";
-  }
-
   // Sala temática activa
   const pasoActivo = pasos.find((p) => p.estado === "en_curso");
   const cont = $("paso-activo-content");
@@ -209,7 +175,7 @@ function render(data) {
     if (proximaPendiente) {
       cont.innerHTML = `<p class="small-muted">Su próxima sala es <strong>${proximaPendiente.sala_nombre}</strong>. Esperando a que el facilitador la inicie.</p>`;
     } else {
-      cont.innerHTML = `<p class="small-muted">El equipo completó las 5 salas temáticas. Sigan atentos a las salas de crisis y al cierre de la jornada.</p>`;
+      cont.innerHTML = `<p class="small-muted">El equipo completó las 5 salas temáticas. Sigan atentos al cierre de la jornada.</p>`;
     }
   } else {
     cont.innerHTML = renderPasoActivo(pasoActivo);
@@ -229,7 +195,6 @@ function render(data) {
     .join("");
 
   manejarTimerSala(pasos);
-  renderCrisisOverlay(data.crisis);
   renderTransmision(data.transmision);
 }
 
@@ -251,8 +216,8 @@ function renderTransmision(transmision) {
   }
 }
 
-// ---------------- CRONÓMETRO FIJO DE LA SALA TEMÁTICA (5 minutos) ----------------
-const DURACION_SALA_SEGUNDOS = 5 * 60;
+// ---------------- CRONÓMETRO FIJO DE LA SALA TEMÁTICA (8 minutos) ----------------
+const DURACION_SALA_SEGUNDOS = 8 * 60;
 let salaEnCursoAvisada = null;
 let timerFijoInterval = null;
 
@@ -308,88 +273,13 @@ function detenerTimerFijo() {
 function mostrarAlertaInicio(nombreSala) {
   const el = document.createElement("div");
   el.className = "toast-alerta";
-  el.innerHTML = `⏱️ <strong>¡Arranca ${nombreSala}!</strong> Tenés 5 minutos.`;
+  el.innerHTML = `⏱️ <strong>¡Arranca ${nombreSala}!</strong> Tenés 8 minutos.`;
   document.body.appendChild(el);
   requestAnimationFrame(() => el.classList.add("visible"));
   setTimeout(() => {
     el.classList.remove("visible");
     setTimeout(() => el.remove(), 400);
   }, 4200);
-}
-
-// ---------------- PANTALLA COMPLETA DE SALA DE CRISIS (8 minutos) ----------------
-let crisisTimerInterval = null;
-
-// Se muestra apenas la crisis esta disparada y todavia no fue evaluada.
-// No tiene boton de cierre: el equipo la ve hasta que el jurado la evalua.
-// El cronometro de 8 minutos recien arranca cuando el admin lo inicia de
-// forma remota (crisis.cronometro_iniciado_en); hasta entonces se ve la
-// consigna con un cartel de "esperando inicio".
-function renderCrisisOverlay(crisisList) {
-  const overlay = $("crisis-overlay");
-  if (!overlay) return;
-
-  const activa = (crisisList || []).find((c) => c.disparada && !c.evaluada);
-  if (!activa) {
-    overlay.classList.add("hidden");
-    document.body.classList.remove("crisis-lock");
-    clearInterval(crisisTimerInterval);
-    crisisTimerInterval = null;
-    return;
-  }
-
-  overlay.classList.remove("hidden");
-  document.body.classList.add("crisis-lock");
-  $("crisis-overlay-nombre").textContent = activa.nombre;
-  $("crisis-overlay-texto").textContent = activa.caso_critico || "";
-
-  clearInterval(crisisTimerInterval);
-  crisisTimerInterval = null;
-  const timerEl = $("crisis-overlay-timer");
-  const esperaEl = $("crisis-overlay-espera");
-  timerEl.classList.remove("timer-urgente", "timer-pausado");
-
-  if (!activa.cronometro_iniciado_en) {
-    timerEl.textContent = "--:--";
-    esperaEl.textContent = "Esperando que el equipo organizador inicie el cronómetro de 8 minutos.";
-    return;
-  }
-
-  // El admin puede finalizarlo antes de tiempo (queda fijo en 00:00) o
-  // pausarlo (queda fijo en el valor que tenía al pausarse, sin tiquear).
-  if (activa.cronometro_finalizado_en) {
-    timerEl.textContent = "00:00";
-    esperaEl.textContent = "La organización finalizó el cronómetro.";
-    return;
-  }
-  if (activa.cronometro_pausado_en) {
-    const iniciado = new Date(activa.cronometro_iniciado_en).getTime();
-    const duracionMs = (activa.duracion_segundos || 480) * 1000;
-    const pausadoEn = new Date(activa.cronometro_pausado_en).getTime();
-    const restanteMs = Math.max(0, iniciado + duracionMs - pausadoEn);
-    const totalSeg = Math.ceil(restanteMs / 1000);
-    const mm = String(Math.floor(totalSeg / 60)).padStart(2, "0");
-    const ss = String(totalSeg % 60).padStart(2, "0");
-    timerEl.textContent = `${mm}:${ss}`;
-    timerEl.classList.add("timer-pausado");
-    esperaEl.textContent = "⏸️ La organización pausó el cronómetro.";
-    return;
-  }
-
-  esperaEl.textContent = "";
-  const iniciado = new Date(activa.cronometro_iniciado_en).getTime();
-  const duracionMs = (activa.duracion_segundos || 480) * 1000;
-
-  function tick() {
-    const restanteMs = Math.max(0, iniciado + duracionMs - Date.now());
-    const totalSeg = Math.ceil(restanteMs / 1000);
-    const mm = String(Math.floor(totalSeg / 60)).padStart(2, "0");
-    const ss = String(totalSeg % 60).padStart(2, "0");
-    timerEl.textContent = `${mm}:${ss}`;
-    timerEl.classList.toggle("timer-urgente", totalSeg > 0 && totalSeg <= 60);
-  }
-  tick();
-  crisisTimerInterval = setInterval(tick, 1000);
 }
 
 function renderPasoActivo(paso) {
